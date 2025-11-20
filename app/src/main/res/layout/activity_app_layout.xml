@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -6,7 +7,7 @@
     android:background="#121212"
     android:padding="16dp">
 
-    <!-- Top Status Bar -->
+    <!-- 1. OBERER BEREICH: STATUS & CONNECT -->
     <TextView
         android:id="@+id/status_text_view"
         android:layout_width="match_parent"
@@ -16,7 +17,6 @@
         android:textSize="18sp"
         android:layout_marginBottom="16dp"/>
     
-    <!-- Manuelle Connect/Reconnect Button -->
     <Button
         android:id="@+id/connect_button"
         android:layout_width="match_parent"
@@ -27,7 +27,8 @@
         android:padding="12dp"
         android:layout_marginBottom="24dp"/>
 
-    <!-- LIVE VISITORS TAB (Standardansicht) -->
+    <!-- 2. TAB: LIVE BESUCHER LISTE (Sichtbar wenn kein Anruf) -->
+    <!-- Dieser Bereich wird standardmäßig angezeigt -->
     <TextView
         android:id="@+id/visitor_data_label"
         android:layout_width="match_parent"
@@ -45,12 +46,12 @@
         android:layout_weight="1"
         android:padding="8dp"
         android:background="#1E1E1E"
-        tools:listitem="@layout/visitor_list_item" />
-        
-    <!-- Hinweis: visitor_list_item muss im Adapter dynamisch erstellt werden oder als XML hinzugefügt werden -->
+        tools:listitem="@layout/visitor_list_item_template" 
+        android:scrollbars="vertical" /> 
 
 
-    <!-- ACTIVE CALL TAB (Wird nur bei Anruf sichtbar) -->
+    <!-- 3. TAB: AKTIVER ANRUF (Sichtbar während Anruf) -->
+    <!-- Dieser Bereich ist standardmäßig ausgeblendet (visibility="gone") -->
     <LinearLayout
         android:id="@+id/active_call_layout"
         android:layout_width="match_parent"
@@ -60,7 +61,8 @@
         android:gravity="center"
         android:background="#212121"
         android:padding="32dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        tools:visibility="visible"> 
 
         <TextView
             android:layout_width="wrap_content"
@@ -81,6 +83,14 @@
             android:gravity="center"
             android:layout_marginBottom="40dp"/>
 
+        <!-- Visualizer Platzhalter -->
+        <View
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:background="@android:drawable/ic_btn_speak_now"
+            android:backgroundTint="#444444"
+            android:layout_marginBottom="40dp"/>
+
         <Button
             android:id="@+id/call_end_button"
             android:layout_width="wrap_content"
@@ -89,19 +99,17 @@
             android:backgroundTint="#F44336"
             android:textColor="@android:color/white"
             android:padding="16dp"
-            android:drawableStart="@android:drawable/ic_menu_close_clear_cancel"
+            android:drawableLeft="@android:drawable/ic_menu_close_clear_cancel"
             android:drawableTint="@android:color/white"/>
             
-        <!-- Audio Visualizer oder Steuerung hier einfügen -->
-
     </LinearLayout>
 
-    <!-- Der alte Platzhalter Text (wird jetzt als Label genutzt und kann entfernt werden) -->
+    <!-- 4. LEGACY ID (Versteckt) -->
     <TextView
         android:id="@+id/visitor_data_text_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        tools:text="Alte Daten (sollte nicht sichtbar sein)"/>
+        tools:text="Legacy Placeholder"/>
 
 </LinearLayout>
