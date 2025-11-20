@@ -1,0 +1,107 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="16dp">
+
+    <!-- Top Status Bar -->
+    <TextView
+        android:id="@+id/status_text_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Status: Verbinde..."
+        android:textColor="#8BC34A"
+        android:textSize="18sp"
+        android:layout_marginBottom="16dp"/>
+    
+    <!-- Manuelle Connect/Reconnect Button -->
+    <Button
+        android:id="@+id/connect_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Manueller Reconnect"
+        android:backgroundTint="#4CAF50"
+        android:textColor="@android:color/white"
+        android:padding="12dp"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- LIVE VISITORS TAB (Standardansicht) -->
+    <TextView
+        android:id="@+id/visitor_data_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="AKTIVE BESUCHER:"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/live_visitors_recycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="8dp"
+        android:background="#1E1E1E"
+        tools:listitem="@layout/visitor_list_item" />
+        
+    <!-- Hinweis: visitor_list_item muss im Adapter dynamisch erstellt werden oder als XML hinzugefügt werden -->
+
+
+    <!-- ACTIVE CALL TAB (Wird nur bei Anruf sichtbar) -->
+    <LinearLayout
+        android:id="@+id/active_call_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#212121"
+        android:padding="32dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LIVE ANRUF"
+            android:textColor="#FF9800"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/active_call_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Im Gespräch mit..."
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:layout_marginBottom="40dp"/>
+
+        <Button
+            android:id="@+id/call_end_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AUFLEGEN"
+            android:backgroundTint="#F44336"
+            android:textColor="@android:color/white"
+            android:padding="16dp"
+            android:drawableStart="@android:drawable/ic_menu_close_clear_cancel"
+            android:drawableTint="@android:color/white"/>
+            
+        <!-- Audio Visualizer oder Steuerung hier einfügen -->
+
+    </LinearLayout>
+
+    <!-- Der alte Platzhalter Text (wird jetzt als Label genutzt und kann entfernt werden) -->
+    <TextView
+        android:id="@+id/visitor_data_text_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        tools:text="Alte Daten (sollte nicht sichtbar sein)"/>
+
+</LinearLayout>
