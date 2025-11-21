@@ -3,6 +3,7 @@ package com.example.x2bro4proCall
 import android.os.Bundle
 import android.util.Log
 import android.widget.EditText
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -146,8 +147,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     private fun performLoginUI() {
-        val emailInput = EditText(this).apply { hint = "Email" }
-        val passInput = EditText(this).apply { hint = "Password" }
+        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
+        val passInput = EditText(this).apply { hint = "Password"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 20, 40, 0)
@@ -197,9 +198,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     private fun performRegisterUI() {
-        val nameInput = EditText(this).apply { hint = "Name (optional)" }
-        val emailInput = EditText(this).apply { hint = "Email" }
-        val passInput = EditText(this).apply { hint = "Password" }
+        val nameInput = EditText(this).apply { hint = "Name (optional)"; inputType = InputType.TYPE_TEXT_VARIATION_PERSON_NAME }
+        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
+        val passInput = EditText(this).apply { hint = "Password"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 20, 40, 0)
