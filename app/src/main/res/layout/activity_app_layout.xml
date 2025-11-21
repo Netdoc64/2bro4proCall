@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#121212"
+    android:background="@drawable/bg_space_gradient"
     android:padding="16dp">
 
     <!-- 1. OBERER BEREICH: STATUS & CONNECT -->
@@ -13,9 +14,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Status: Verbinde..."
-        android:textColor="#8BC34A"
+        android:textColor="@color/text_primary"
         android:textSize="18sp"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="12dp"
+        android:fontFamily="sans-serif-medium" />
     
     <ProgressBar
         android:id="@+id/reconnect_progress"
@@ -25,17 +27,20 @@
         android:indeterminate="true"
         android:visibility="gone"
         android:layout_gravity="center"
-        android:layout_marginBottom="12dp"/>
+        android:layout_marginBottom="12dp"
+        android:indeterminateTint="@color/neon_cyan" />
     
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/connect_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Manueller Reconnect"
-        android:backgroundTint="#4CAF50"
-        android:textColor="@android:color/white"
+        app:backgroundTint="@color/accent_green"
+        android:textColor="@color/text_primary"
         android:padding="12dp"
-        android:layout_marginBottom="12dp"/>
+        android:layout_marginBottom="12dp"
+        app:cornerRadius="12dp"
+        app:iconTint="@color/text_primary" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -44,27 +49,29 @@
         android:gravity="center"
         android:layout_marginBottom="24dp">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/login_button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Login"
-            android:backgroundTint="#2196F3"
-            android:textColor="@android:color/white"
+            app:backgroundTint="@color/neon_cyan"
+            android:textColor="@color/space_background_start"
             android:padding="10dp"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginEnd="8dp"
+            app:cornerRadius="10dp" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/register_button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Registrieren"
-            android:backgroundTint="#03A9F4"
-            android:textColor="@android:color/white"
+            app:backgroundTint="@color/neon_magenta"
+            android:textColor="@color/text_primary"
             android:padding="10dp"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="8dp"
+            app:cornerRadius="10dp" />
 
     </LinearLayout>
 
@@ -74,21 +81,29 @@
         android:id="@+id/visitor_data_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="AKTIVE BESUCHER:"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
+        android:text="AKTIVE BESUCHER"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
         android:textStyle="bold"
         android:layout_marginBottom="8dp"/>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/live_visitors_recycler"
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp"
-        android:background="#1E1E1E"
-        tools:listitem="@layout/visitor_list_item_template" 
-        android:scrollbars="vertical" /> 
+        app:cardBackgroundColor="@color/panel_dark"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="6dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/live_visitors_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="12dp"
+            tools:listitem="@layout/visitor_list_item_template"
+            android:scrollbars="vertical" />
+
+    </androidx.cardview.widget.CardView>
 
 
     <!-- 3. TAB: AKTIVER ANRUF (Sichtbar während Anruf) -->
