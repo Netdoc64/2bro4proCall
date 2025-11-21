@@ -60,7 +60,21 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!it.isSuccessful) {
-                        cb.onFailure("Register failed: ${it.code}")
+                        // Backend-Fehlermeldung extrahieren
+                        val errorMsg = try {
+                            val errorBody = it.body?.string() ?: ""
+                            val errorJson = JSONObject(errorBody)
+                            errorJson.optString("error", "Unbekannter Fehler")
+                        } catch (e: Exception) {
+                            "HTTP ${it.code}"
+                        }
+                        
+                        // Spezifische Fehlermeldungen basierend auf Status-Code
+                        val message = when (it.code) {
+                            409 -> "❌ $errorMsg\n\nBitte verwende eine andere Email-Adresse."
+                            else -> "Fehler (${it.code}): $errorMsg"
+                        }
+                        cb.onFailure(message)
                         return
                     }
                     val text = it.body?.string() ?: ""
@@ -80,8 +94,10 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
                             saveDomains(domains)
                             cb.onSuccess(token, role, domains)
                         } else {
-                            // Some backends return success without token for register
-                            cb.onFailure("Register succeeded but no token returned")
+                            // Backend gibt bei Register keinen Token zurück (approved=0)
+                            // Zeige Erfolg-Meldung statt Fehler
+                            val successMsg = json.optString("message", "Registrierung erfolgreich")
+                            cb.onFailure("✅ $successMsg")
                         }
                     } catch (e: Exception) {
                         cb.onFailure("Invalid response: ${e.message}")
@@ -108,7 +124,22 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!it.isSuccessful) {
-                        cb.onFailure("Login failed: ${it.code}")
+                        // Backend-Fehlermeldung extrahieren
+                        val errorMsg = try {
+                            val errorBody = it.body?.string() ?: ""
+                            val errorJson = JSONObject(errorBody)
+                            errorJson.optString("error", "Unbekannter Fehler")
+                        } catch (e: Exception) {
+                            "HTTP ${it.code}"
+                        }
+                        
+                        // Spezifische Fehlermeldungen basierend auf Status-Code
+                        val message = when (it.code) {
+                            401 -> "❌ $errorMsg"
+                            403 -> "⏳ $errorMsg\n\nBitte warte auf die Freischaltung durch einen Administrator."
+                            else -> "Fehler (${it.code}): $errorMsg"
+                        }
+                        cb.onFailure(message)
                         return
                     }
                     val text = it.body?.string() ?: ""

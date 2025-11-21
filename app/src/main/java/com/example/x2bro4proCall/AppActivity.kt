@@ -295,8 +295,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
                     override fun onFailure(message: String) {
                         runOnUiThread {
-                            statusTextView.text = "Status: Auth fehlgeschlagen"
-                            Toast.makeText(this@AppActivity, "Login failed: $message", Toast.LENGTH_LONG).show()
+                            // Zeige detaillierte Fehlermeldung
+                            statusTextView.text = "Status: Login fehlgeschlagen"
+                            
+                            // AlertDialog für bessere Sichtbarkeit
+                            AlertDialog.Builder(this@AppActivity)
+                                .setTitle("Login Fehler")
+                                .setMessage(message)
+                                .setPositiveButton("OK") { dlg, _ ->
+                                    dlg.dismiss()
+                                    // Bei "nicht freigegeben" Login-Dialog erneut öffnen
+                                    if (!message.contains("⏳")) {
+                                        performLoginUI()
+                                    }
+                                }
+                                .setCancelable(false)
+                                .show()
                         }
                     }
                 })
@@ -351,8 +365,23 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
                     override fun onFailure(message: String) {
                         runOnUiThread {
-                            statusTextView.text = "Status: Registrierung fehlgeschlagen"
-                            Toast.makeText(this@AppActivity, "Register failed: $message", Toast.LENGTH_LONG).show()
+                            // Bei Erfolg (✅) zeige andere Meldung
+                            val isSuccess = message.startsWith("✅")
+                            statusTextView.text = if (isSuccess) "Status: Registrierung erfolgreich" else "Status: Registrierung fehlgeschlagen"
+                            
+                            // AlertDialog für detaillierte Meldung
+                            AlertDialog.Builder(this@AppActivity)
+                                .setTitle(if (isSuccess) "Registrierung erfolgreich" else "Registrierung Fehler")
+                                .setMessage(message)
+                                .setPositiveButton("OK") { dlg, _ ->
+                                    dlg.dismiss()
+                                    // Bei Erfolg zum Login-Dialog wechseln
+                                    if (isSuccess) {
+                                        performLoginUI()
+                                    }
+                                }
+                                .setCancelable(false)
+                                .show()
                         }
                     }
                 })

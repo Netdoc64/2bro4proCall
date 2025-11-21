@@ -3063,6 +3063,9 @@ id center_horizontal
 id center_vertical
 id chain
 id chains
+id chat_input
+id chat_messages_view
+id chat_send_button
 id chat_visitor_button
 id checkbox
 id checked

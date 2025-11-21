@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -33,6 +34,15 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final Button callEndButton;
 
   @NonNull
+  public final EditText chatInput;
+
+  @NonNull
+  public final TextView chatMessagesView;
+
+  @NonNull
+  public final Button chatSendButton;
+
+  @NonNull
   public final MaterialButton connectButton;
 
   @NonNull
@@ -58,14 +68,19 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
 
   private ActivityAppLayoutBinding(@NonNull LinearLayout rootView, @NonNull TextView activeCallInfo,
       @NonNull LinearLayout activeCallLayout, @NonNull Button callEndButton,
-      @NonNull MaterialButton connectButton, @NonNull RecyclerView liveVisitorsRecycler,
-      @NonNull MaterialButton loginButton, @NonNull ProgressBar reconnectProgress,
-      @NonNull MaterialButton registerButton, @NonNull TextView statusTextView,
-      @NonNull TextView visitorDataLabel, @NonNull TextView visitorDataTextView) {
+      @NonNull EditText chatInput, @NonNull TextView chatMessagesView,
+      @NonNull Button chatSendButton, @NonNull MaterialButton connectButton,
+      @NonNull RecyclerView liveVisitorsRecycler, @NonNull MaterialButton loginButton,
+      @NonNull ProgressBar reconnectProgress, @NonNull MaterialButton registerButton,
+      @NonNull TextView statusTextView, @NonNull TextView visitorDataLabel,
+      @NonNull TextView visitorDataTextView) {
     this.rootView = rootView;
     this.activeCallInfo = activeCallInfo;
     this.activeCallLayout = activeCallLayout;
     this.callEndButton = callEndButton;
+    this.chatInput = chatInput;
+    this.chatMessagesView = chatMessagesView;
+    this.chatSendButton = chatSendButton;
     this.connectButton = connectButton;
     this.liveVisitorsRecycler = liveVisitorsRecycler;
     this.loginButton = loginButton;
@@ -121,6 +136,24 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.chat_input;
+      EditText chatInput = ViewBindings.findChildViewById(rootView, id);
+      if (chatInput == null) {
+        break missingId;
+      }
+
+      id = R.id.chat_messages_view;
+      TextView chatMessagesView = ViewBindings.findChildViewById(rootView, id);
+      if (chatMessagesView == null) {
+        break missingId;
+      }
+
+      id = R.id.chat_send_button;
+      Button chatSendButton = ViewBindings.findChildViewById(rootView, id);
+      if (chatSendButton == null) {
+        break missingId;
+      }
+
       id = R.id.connect_button;
       MaterialButton connectButton = ViewBindings.findChildViewById(rootView, id);
       if (connectButton == null) {
@@ -170,8 +203,9 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       return new ActivityAppLayoutBinding((LinearLayout) rootView, activeCallInfo, activeCallLayout,
-          callEndButton, connectButton, liveVisitorsRecycler, loginButton, reconnectProgress,
-          registerButton, statusTextView, visitorDataLabel, visitorDataTextView);
+          callEndButton, chatInput, chatMessagesView, chatSendButton, connectButton,
+          liveVisitorsRecycler, loginButton, reconnectProgress, registerButton, statusTextView,
+          visitorDataLabel, visitorDataTextView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

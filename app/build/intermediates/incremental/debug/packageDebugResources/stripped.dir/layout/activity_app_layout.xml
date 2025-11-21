@@ -137,7 +137,7 @@
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:gravity="center"
-            android:layout_marginBottom="40dp"/>
+            android:layout_marginBottom="24dp"/>
 
         <!-- Visualizer Platzhalter -->
         <View
@@ -145,7 +145,85 @@
             android:layout_height="100dp"
             android:background="@android:drawable/ic_btn_speak_now"
             android:backgroundTint="#444444"
-            android:layout_marginBottom="40dp"/>
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Chat-Bereich -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            app:cardBackgroundColor="#2E2E2E"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="CHAT"
+                    android:textColor="#00BCD4"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp"/>
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:background="#1A1A1A"
+                    android:padding="8dp">
+
+                    <TextView
+                        android:id="@+id/chat_messages_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:fontFamily="monospace"
+                        tools:text="[12:34:56] Agent: Hallo!\n[12:35:01] Besucher: Hi!"/>
+
+                </ScrollView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/chat_input"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Nachricht eingeben..."
+                        android:textColor="#FFFFFF"
+                        android:textColorHint="#888888"
+                        android:background="#333333"
+                        android:padding="12dp"
+                        android:inputType="text"
+                        android:imeOptions="actionSend"/>
+
+                    <Button
+                        android:id="@+id/chat_send_button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SENDEN"
+                        android:backgroundTint="#00BCD4"
+                        android:textColor="#FFFFFF"
+                        android:layout_marginStart="8dp"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
 
         <Button
             android:id="@+id/call_end_button"

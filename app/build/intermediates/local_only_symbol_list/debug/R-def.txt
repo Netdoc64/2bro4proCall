@@ -16,6 +16,9 @@ id active_call_info
 id active_call_layout
 id call_end_button
 id call_visitor_button
+id chat_input
+id chat_messages_view
+id chat_send_button
 id chat_visitor_button
 id connect_button
 id live_visitors_recycler
