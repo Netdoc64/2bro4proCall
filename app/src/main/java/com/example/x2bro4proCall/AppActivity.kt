@@ -79,6 +79,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // 1. UI-Referenzen initialisieren (Muss mit XML IDs übereinstimmen)
         statusTextView = findViewById(R.id.status_text_view)
         connectButton = findViewById(R.id.connect_button)
+        // Start disabled until clients are initialized and permission granted
+        connectButton.isEnabled = false
         val loginButton: Button = findViewById(R.id.login_button)
         val registerButton: Button = findViewById(R.id.register_button)
         liveVisitorsRecyclerView = findViewById(R.id.live_visitors_recycler) 
@@ -98,6 +100,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // 3. Event Listener
         callEndButton.setOnClickListener { endCall() }
         connectButton.setOnClickListener {
+            // Guard against using clients before initialization
+            if (!::authClient.isInitialized) {
+                Toast.makeText(this, "Bitte warte auf Berechtigungen / Initialisierung", Toast.LENGTH_SHORT).show()
+                performLoginUI()
+                return@setOnClickListener
+            }
             // manual reconnect / connect using known token/room
             val token = currentToken ?: authClient.getToken()
             val room = currentRoom ?: BUSINESS_ID
@@ -174,6 +182,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             signalingClient.send(candidateJson)
         }
 
+        // enable connect button now that clients are ready
+        connectButton.isEnabled = true
         showVisitorsTab()
     }
 
