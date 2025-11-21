@@ -182,11 +182,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 webRtcClient.peerConnection?.setLocalDescription(this, sdp)
                 val offer = JSONObject().apply {
                     put("type", "offer")
-                    put("sdp", JSONObject().apply { 
+                    put("sdp", JSONObject().apply {
                         put("type", sdp.type.canonicalForm())
-                        put("sdp", sdp.description) 
+                        put("sdp", sdp.description)
                     })
-                    put("targetSessionId", visitor.sessionId) 
+                    put("targetSessionId", visitor.sessionId)
                 }
                 signalingClient.send(offer)
                 activeCallInfo.text = "Warte auf Annahme durch ${visitor.callerName}..."
@@ -210,7 +210,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             SessionDescription.Type.OFFER,
             sdp.getString("sdp")
         )
-        webRtcClient.peerConnection?.setRemoteDescription(object : SdpObserver {}, offerDesc)
+        webRtcClient.peerConnection?.setRemoteDescription(object : SdpObserver {
+            override fun onCreateSuccess(sdp: SessionDescription) {}
+            override fun onSetSuccess() {}
+            override fun onCreateFailure(error: String) {}
+            override fun onSetFailure(error: String) {}
+        }, offerDesc)
         
         webRtcClient.createAnswer(object : SdpObserver {
             override fun onCreateSuccess(answerSdp: SessionDescription) {
@@ -282,7 +287,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         init {
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
             peerConnection = factory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
-                override fun onIceCandidate(candidate: IceCandidate?) { /* Signal to worker */ }
+                override fun onIceCandidate(candidate: IceCandidate) { /* Signal to worker */ }
+                override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) {}
                 override fun onAddStream(stream: MediaStream) {}
                 override fun onDataChannel(dataChannel: DataChannel) {}
                 override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState) {}
@@ -290,8 +296,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 override fun onIceGatheringChange(newState: PeerConnection.IceGatheringState) {}
                 override fun onRemoveStream(stream: MediaStream) {}
                 override fun onSignalingChange(newState: PeerConnection.SignalingState) {}
-                override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<out MediaStream>?) {}
-                override fun onRemoveTrack(rtpReceiver: RtpReceiver?) {}
+                override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<MediaStream>) {}
+                override fun onRemoveTrack(rtpReceiver: RtpReceiver) {}
                 override fun onRenegotiationNeeded() {}
             })
         }
@@ -302,10 +308,10 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         fun handleAnswer(sdpJson: JSONObject) {
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdpJson.getString("sdp"))
             peerConnection?.setRemoteDescription(object : SdpObserver {
-                override fun onCreateSuccess(sdp: SessionDescription?) {}
+                override fun onCreateSuccess(sdp: SessionDescription) {}
                 override fun onSetSuccess() {}
-                override fun onCreateFailure(error: String?) {}
-                override fun onSetFailure(error: String?) {}
+                override fun onCreateFailure(error: String) {}
+                override fun onSetFailure(error: String) {}
             }, answer)
         }
 

@@ -1,0 +1,20 @@
+R_DEF: Internal format may change without notice
+local
+color launcher_bg
+drawable ic_launcher_foreground
+id active_call_info
+id active_call_layout
+id call_end_button
+id call_visitor_button
+id chat_visitor_button
+id connect_button
+id live_visitors_recycler
+id status_text_view
+id visitor_avatar
+id visitor_data_label
+id visitor_data_text_view
+id visitor_domain
+id visitor_name
+layout activity_app_layout
+layout visitor_list_item_template
+mipmap ic_launcher
