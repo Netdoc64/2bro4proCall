@@ -58,6 +58,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var webRtcClient: PeerConnectionClient
     private var currentRoom: String? = null
     private var currentToken: String? = null
+    private var currentRole: String? = null
     private val liveVisitors = mutableListOf<Visitor>()
     private lateinit var visitorAdapter: VisitorAdapter
 
@@ -112,6 +113,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         connectButton.isEnabled = false
         val loginButton: Button = findViewById(R.id.login_button)
         val registerButton: Button = findViewById(R.id.register_button)
+        val adminButton: Button = findViewById(R.id.admin_button)
+        val supervisorButton: Button = findViewById(R.id.supervisor_button)
         liveVisitorsRecyclerView = findViewById(R.id.live_visitors_recycler) 
         activeCallLayout = findViewById(R.id.active_call_layout)
         callEndButton = findViewById(R.id.call_end_button)
@@ -123,6 +126,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // Login/Register visible buttons
         loginButton.setOnClickListener { performLoginUI() }
         registerButton.setOnClickListener { performRegisterUI() }
+        adminButton.setOnClickListener { openAdminPanel() }
+        supervisorButton.setOnClickListener { openSupervisorPanel() }
+        
+        // Admin/Supervisor Buttons initial versteckt
+        adminButton.visibility = View.GONE
+        supervisorButton.visibility = View.GONE
         
         // 2. Adapter und RecyclerView
         visitorAdapter = VisitorAdapter(liveVisitors, this::generateOffer, this)
@@ -283,8 +292,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     override fun onSuccess(token: String, role: String?, domains: List<String>) {
                         runOnUiThread {
                             statusTextView.text = "Status: Auth erfolgreich"
-                            // store token
+                            // store token and role
                             currentToken = token
+                            currentRole = role
+                            
+                            // Zeige Admin/Supervisor Buttons basierend auf Rolle
+                            updateRoleBasedUI(role)
+                            
                             // connect to first domain or show selection
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
                                 currentRoom = DOMAIN_ID
@@ -356,6 +370,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                         runOnUiThread {
                             statusTextView.text = "Status: Registrierung erfolgreich"
                             currentToken = token
+                            currentRole = role
+                            updateRoleBasedUI(role)
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
                                 currentRoom = DOMAIN_ID
                                 signalingClient.connect(DOMAIN_ID, token)
@@ -620,6 +636,296 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val newMessage = "[$timestamp] $sender: $text\n"
         chatMessagesView.text = currentText + newMessage
     }
+    
+    // --- Admin/Supervisor Funktionen ---
+    
+    private fun updateRoleBasedUI(role: String?) {
+        val adminButton: Button = findViewById(R.id.admin_button)
+        val supervisorButton: Button = findViewById(R.id.supervisor_button)
+        
+        when (role) {
+            "superadmin" -> {
+                adminButton.visibility = View.VISIBLE
+                supervisorButton.visibility = View.VISIBLE
+            }
+            "supervisor" -> {
+                adminButton.visibility = View.GONE
+                supervisorButton.visibility = View.VISIBLE
+            }
+            else -> {
+                adminButton.visibility = View.GONE
+                supervisorButton.visibility = View.GONE
+            }
+        }
+    }
+    
+    private fun openAdminPanel() {
+        if (currentRole != "superadmin") {
+            Toast.makeText(this, "Keine Berechtigung", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Admin-Panel Intent (später eigene Activity)
+        AlertDialog.Builder(this)
+            .setTitle("🔧 SuperAdmin Panel")
+            .setMessage("Admin-Funktionen:\n\n" +
+                "• User freischalten\n" +
+                "• Domains zuweisen\n" +
+                "• Domains verwalten\n\n" +
+                "Vollständiges Admin-Panel kommt bald!")
+            .setPositiveButton("User verwalten") { _, _ ->
+                openUserManagement()
+            }
+            .setNeutralButton("Domain verwalten") { _, _ ->
+                openDomainManagement()
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    private fun openUserManagement() {
+        val token = currentToken ?: return
+        
+        statusTextView.text = "Status: Lade User-Daten..."
+        
+        // API Call zu /api/admin/data
+        val url = "https://$BACKEND_HOST/api/admin/data"
+        val client = okhttp3.OkHttpClient()
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        client.newCall(req).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                    statusTextView.text = "Status: Fehler beim Laden"
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                response.use {
+                    if (!it.isSuccessful) {
+                        runOnUiThread {
+                            Toast.makeText(this@AppActivity, "Fehler: ${it.code}", Toast.LENGTH_LONG).show()
+                        }
+                        return
+                    }
+                    
+                    val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
+                    val usersArray = jsonData.optJSONArray("users")
+                    val domainsArray = jsonData.optJSONArray("domains")
+                    
+                    runOnUiThread {
+                        showUserList(usersArray, domainsArray)
+                        statusTextView.text = "Status: Admin-Modus"
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun showUserList(usersArray: org.json.JSONArray?, domainsArray: org.json.JSONArray?) {
+        if (usersArray == null) {
+            Toast.makeText(this, "Keine User gefunden", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val userList = mutableListOf<String>()
+        val userIds = mutableListOf<String>()
+        
+        for (i in 0 until usersArray.length()) {
+            val user = usersArray.getJSONObject(i)
+            val email = user.optString("email")
+            val approved = user.optBoolean("approved")
+            val status = if (approved) "✅" else "⏳"
+            userList.add("$status $email")
+            userIds.add(user.optString("id"))
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("User Verwaltung (${userList.size})")
+            .setItems(userList.toTypedArray()) { _, which ->
+                val userId = userIds[which]
+                val userObj = usersArray.getJSONObject(which)
+                showUserActions(userId, userObj, domainsArray)
+            }
+            .setNegativeButton("Zurück", null)
+            .show()
+    }
+    
+    private fun showUserActions(userId: String, userObj: org.json.JSONObject, domainsArray: org.json.JSONArray?) {
+        val email = userObj.optString("email")
+        val approved = userObj.optBoolean("approved")
+        val allowedDomains = userObj.optJSONArray("allowed_domains")
+        
+        val domainsList = mutableListOf<String>()
+        if (allowedDomains != null) {
+            for (i in 0 until allowedDomains.length()) {
+                domainsList.add(allowedDomains.optString(i))
+            }
+        }
+        
+        val message = buildString {
+            append("Email: $email\n\n")
+            append("Status: ${if (approved) "✅ Freigegeben" else "⏳ Wartet auf Freischaltung"}\n\n")
+            append("Zugewiesene Domains:\n")
+            if (domainsList.isEmpty()) {
+                append("  (keine)\n")
+            } else {
+                domainsList.forEach { append("  • $it\n") }
+            }
+        }
+        
+        val builder = AlertDialog.Builder(this)
+            .setTitle("User: $email")
+            .setMessage(message)
+        
+        if (!approved) {
+            builder.setPositiveButton("✅ Freischalten") { _, _ ->
+                approveUser(userId, email)
+            }
+        }
+        
+        builder.setNeutralButton("🏢 Domains zuweisen") { _, _ ->
+            assignDomains(userId, email, domainsList, domainsArray)
+        }
+        
+        builder.setNegativeButton("Zurück", null)
+            .show()
+    }
+    
+    private fun approveUser(userId: String, email: String) {
+        val token = currentToken ?: return
+        val url = "https://$BACKEND_HOST/api/admin/approve/$userId"
+        
+        val client = okhttp3.OkHttpClient()
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .post(okhttp3.RequestBody.create(null, ""))
+            .build()
+        
+        client.newCall(req).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@AppActivity, "✅ $email wurde freigegeben", Toast.LENGTH_LONG).show()
+                        openUserManagement() // Refresh
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler: ${response.code}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun assignDomains(userId: String, email: String, currentDomains: List<String>, domainsArray: org.json.JSONArray?) {
+        if (domainsArray == null) {
+            Toast.makeText(this, "Keine Domains verfügbar", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val availableDomains = mutableListOf<String>()
+        val selectedDomains = currentDomains.toMutableList()
+        
+        for (i in 0 until domainsArray.length()) {
+            val domain = domainsArray.getJSONObject(i)
+            availableDomains.add(domain.optString("id"))
+        }
+        
+        val checkedItems = BooleanArray(availableDomains.size) { i ->
+            availableDomains[i] in selectedDomains
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("Domains für $email")
+            .setMultiChoiceItems(availableDomains.toTypedArray(), checkedItems) { _, which, isChecked ->
+                if (isChecked) {
+                    selectedDomains.add(availableDomains[which])
+                } else {
+                    selectedDomains.remove(availableDomains[which])
+                }
+            }
+            .setPositiveButton("Speichern") { _, _ ->
+                saveDomainAssignment(userId, selectedDomains.distinct())
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun saveDomainAssignment(userId: String, domains: List<String>) {
+        val token = currentToken ?: return
+        val url = "https://$BACKEND_HOST/api/admin/assign"
+        
+        val json = org.json.JSONObject().apply {
+            put("targetUserId", userId)
+            put("allowed_domains", org.json.JSONArray(domains))
+        }
+        
+        val client = okhttp3.OkHttpClient()
+        val mediaType = okhttp3.MediaType.Companion.get("application/json")
+        val body = okhttp3.RequestBody.Companion.create(json.toString(), mediaType)
+        
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .post(body)
+            .build()
+        
+        client.newCall(req).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@AppActivity, "✅ Domains zugewiesen", Toast.LENGTH_LONG).show()
+                        openUserManagement() // Refresh
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler: ${response.code}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun openDomainManagement() {
+        Toast.makeText(this, "Domain-Verwaltung kommt in Kürze", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun openSupervisorPanel() {
+        if (currentRole !in listOf("supervisor", "superadmin")) {
+            Toast.makeText(this, "Keine Berechtigung", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("👁️ Supervisor Panel")
+            .setMessage("Supervisor-Funktionen:\n\n" +
+                "• Live-Monitoring von Anrufen\n" +
+                "• Call-Statistiken\n" +
+                "• Agent-Performance\n\n" +
+                "Live-Monitoring kommt bald!")
+            .setPositiveButton("Live Anrufe anzeigen") { _, _ ->
+                Toast.makeText(this, "Feature in Entwicklung", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    // --- Ende Admin/Supervisor Funktionen ---
     
     // --- Hilfsklassen ---
 
