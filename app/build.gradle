@@ -4,12 +4,11 @@ plugins {
 }
 
 android {
-    // Namespace ist PFLICHT in Gradle 8.0+ (ersetzt package im Manifest)
-    namespace "com.example.x2bro4proCall" 
+    namespace "com.example.x2bro4proCall"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.x2bro4proCall" // Achtung: Keine Zahlen am Anfang von Package-Namen (2bro... -> bro...)
+        applicationId "com.example.x2bro4proCall"
         minSdk 24
         targetSdk 34
         versionCode 1
@@ -20,13 +19,21 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
-    
+
     buildFeatures {
-        viewBinding true // Optional, aber oft nützlich
+        viewBinding true
+    }
+    
+    // Diese Option verhindert Konflikte bei WebRTC Bibliotheken
+    packagingOptions {
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
     }
 }
 
