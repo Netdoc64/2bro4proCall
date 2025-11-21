@@ -41,8 +41,9 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.10.0")
     
-    // WebRTC via JitPack (funktioniert zuverlässig)
-    implementation 'com.github.webrtc-sdk:android:114.5735.08'
+    // WICHTIG: Diese Version ('com.dafruits') liegt auf Maven Central!
+    // Sie ist kompatibel und wirft keine "Not Found" Fehler mehr.
+    implementation 'com.dafruits:webrtc:113.0.0'
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.recyclerview:recyclerview:1.3.1")
