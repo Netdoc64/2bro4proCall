@@ -56,7 +56,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var statusTextView: TextView
     private lateinit var liveVisitorsRecyclerView: RecyclerView
     private lateinit var connectButton: Button 
-    private lateinit var activeCallLayout: LinearLayout 
+    private lateinit var activeCallLayout: View 
     private lateinit var callEndButton: Button 
     private lateinit var activeCallInfo: TextView
     private lateinit var chatInput: EditText
