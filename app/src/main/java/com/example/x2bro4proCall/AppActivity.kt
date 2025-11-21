@@ -301,7 +301,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         fun handleAnswer(sdpJson: JSONObject) {
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdpJson.getString("sdp"))
-            peerConnection?.setRemoteDescription(object : SdpObserver {}, answer)
+            peerConnection?.setRemoteDescription(object : SdpObserver {
+                override fun onCreateSuccess(sdp: SessionDescription?) {}
+                override fun onSetSuccess() {}
+                override fun onCreateFailure(error: String?) {}
+                override fun onSetFailure(error: String?) {}
+            }, answer)
         }
 
         fun handleIceCandidate(candidateJson: JSONObject) {
