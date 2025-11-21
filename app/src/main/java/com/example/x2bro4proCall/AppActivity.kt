@@ -76,7 +76,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // Supervisor Monitoring
     private var isMonitoring = false
     private var monitoringRoomId: String? = null
-    private lateinit var monitoringClient: SignalingClient
+    private var monitoringClient: SignalingClient? = null
 
     private var activeCallSessionId: String? = null
     // NOTE: Diese Domain-ID muss mit der ID im Backend übereinstimmen!
@@ -1093,7 +1093,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }, BACKEND_HOST)
         
         // Verbinde mit mode=monitor Parameter
-        monitoringClient.connectWithMode(roomId, token, "monitor")
+        monitoringClient?.connectWithMode(roomId, token, "monitor")
         
         // Zeige Monitoring-UI
         showMonitoringUI(roomId)
@@ -1150,7 +1150,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     private fun stopMonitoring() {
         if (isMonitoring) {
-            monitoringClient.disconnect()
+            monitoringClient?.disconnect()
+            monitoringClient = null
             isMonitoring = false
             monitoringRoomId = null
         }

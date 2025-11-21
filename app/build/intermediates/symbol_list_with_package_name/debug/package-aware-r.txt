@@ -3627,6 +3627,7 @@ layout select_dialog_singlechoice_material
 layout support_simple_spinner_dropdown_item
 layout visitor_list_item_template
 mipmap ic_launcher
+mipmap ic_launcher_round
 plurals mtrl_badge_content_description
 string abc_action_bar_home_description
 string abc_action_bar_up_description

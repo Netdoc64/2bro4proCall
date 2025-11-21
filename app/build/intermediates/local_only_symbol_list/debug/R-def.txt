@@ -37,5 +37,6 @@ id visitor_name
 layout activity_app_layout
 layout visitor_list_item_template
 mipmap ic_launcher
+mipmap ic_launcher_round
 style Theme.SciFi
 style Widget.SciFi.Button
