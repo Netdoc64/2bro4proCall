@@ -1,45 +1,24 @@
-name: Android Build
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+buildscript {
+    ext.kotlin_version = "1.8.0"
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.0.0"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 
-    steps:
-    # 1. Code vom Repository holen
-    - name: Checkout Code
-      uses: actions/checkout@v3
-
-    # 2. Java Umgebung (JDK 17) einrichten
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
-
-    # 3. Berechtigungen für den Builder setzen (Wichtig!)
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew || true
-
-    # 4. App bauen (Debug Version)
-    # Wir nutzen 'gradle' direkt, falls du keinen Wrapper hast, oder versuchen den Wrapper
-    - name: Build with Gradle
-      run: |
-        if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
-        else
-            gradle assembleDebug --stacktrace
-        fi
-
-    # 5. Die fertige APK finden und hochladen
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
