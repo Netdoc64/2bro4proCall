@@ -4,7 +4,15 @@
         "source": "com.example.x2bro4proCall.app-main-35:/layout/visitor_list_item_template.xml"
     },
     {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-mergeDebugResources-32:/layout/activity_app_layout.xml",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-main-35:/layout/activity_app_layout.xml"
+    },
+    {
         "merged": "com.example.x2bro4proCall.app-mergeDebugResources-32:/layout/activity_app_layout.xml",
         "source": "com.example.x2bro4proCall.app-main-35:/layout/activity_app_layout.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-mergeDebugResources-32:/layout/visitor_list_item_template.xml",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-main-35:/layout/visitor_list_item_template.xml"
     }
 ]

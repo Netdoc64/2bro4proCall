@@ -298,7 +298,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:src="@drawable/app_logo"
-                    android:padding="20dp"
+                    android:padding="4dp"
                     android:scaleType="centerCrop"
                     android:contentDescription="Call Avatar"/>
 
