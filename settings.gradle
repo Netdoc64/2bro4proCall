@@ -10,6 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // WebRTC 1.0.32006 liegt nur hier:
+        jcenter() 
+        // Backup für seltene Dateien:
+        maven { url 'https://jitpack.io' }
     }
 }
 rootProject.name = "2bro4proCall"
