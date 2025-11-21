@@ -4,28 +4,28 @@ package com.example.x2bro4proCall.databinding;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.example.x2bro4proCall.R;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 import java.lang.NullPointerException;
 import java.lang.Override;
 import java.lang.String;
 
 public final class VisitorListItemTemplateBinding implements ViewBinding {
   @NonNull
-  private final LinearLayout rootView;
+  private final MaterialCardView rootView;
 
   @NonNull
-  public final Button callVisitorButton;
+  public final MaterialButton callVisitorButton;
 
   @NonNull
-  public final Button chatVisitorButton;
+  public final MaterialButton chatVisitorButton;
 
   @NonNull
   public final ImageView visitorAvatar;
@@ -36,8 +36,8 @@ public final class VisitorListItemTemplateBinding implements ViewBinding {
   @NonNull
   public final TextView visitorName;
 
-  private VisitorListItemTemplateBinding(@NonNull LinearLayout rootView,
-      @NonNull Button callVisitorButton, @NonNull Button chatVisitorButton,
+  private VisitorListItemTemplateBinding(@NonNull MaterialCardView rootView,
+      @NonNull MaterialButton callVisitorButton, @NonNull MaterialButton chatVisitorButton,
       @NonNull ImageView visitorAvatar, @NonNull TextView visitorDomain,
       @NonNull TextView visitorName) {
     this.rootView = rootView;
@@ -50,7 +50,7 @@ public final class VisitorListItemTemplateBinding implements ViewBinding {
 
   @Override
   @NonNull
-  public LinearLayout getRoot() {
+  public MaterialCardView getRoot() {
     return rootView;
   }
 
@@ -76,13 +76,13 @@ public final class VisitorListItemTemplateBinding implements ViewBinding {
     int id;
     missingId: {
       id = R.id.call_visitor_button;
-      Button callVisitorButton = ViewBindings.findChildViewById(rootView, id);
+      MaterialButton callVisitorButton = ViewBindings.findChildViewById(rootView, id);
       if (callVisitorButton == null) {
         break missingId;
       }
 
       id = R.id.chat_visitor_button;
-      Button chatVisitorButton = ViewBindings.findChildViewById(rootView, id);
+      MaterialButton chatVisitorButton = ViewBindings.findChildViewById(rootView, id);
       if (chatVisitorButton == null) {
         break missingId;
       }
@@ -105,7 +105,7 @@ public final class VisitorListItemTemplateBinding implements ViewBinding {
         break missingId;
       }
 
-      return new VisitorListItemTemplateBinding((LinearLayout) rootView, callVisitorButton,
+      return new VisitorListItemTemplateBinding((MaterialCardView) rootView, callVisitorButton,
           chatVisitorButton, visitorAvatar, visitorDomain, visitorName);
     }
     String missingId = rootView.getResources().getResourceName(id);

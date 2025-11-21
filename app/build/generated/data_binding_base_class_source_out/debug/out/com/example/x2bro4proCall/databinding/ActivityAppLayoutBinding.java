@@ -4,8 +4,6 @@ package com.example.x2bro4proCall.databinding;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -16,6 +14,8 @@ import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.example.x2bro4proCall.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textfield.TextInputEditText;
 import java.lang.NullPointerException;
 import java.lang.Override;
 import java.lang.String;
@@ -28,22 +28,22 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final TextView activeCallInfo;
 
   @NonNull
-  public final LinearLayout activeCallLayout;
+  public final MaterialCardView activeCallLayout;
 
   @NonNull
   public final MaterialButton adminButton;
 
   @NonNull
-  public final Button callEndButton;
+  public final MaterialButton callEndButton;
 
   @NonNull
-  public final EditText chatInput;
+  public final TextInputEditText chatInput;
 
   @NonNull
   public final TextView chatMessagesView;
 
   @NonNull
-  public final Button chatSendButton;
+  public final MaterialButton chatSendButton;
 
   @NonNull
   public final MaterialButton connectButton;
@@ -73,9 +73,9 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final TextView visitorDataTextView;
 
   private ActivityAppLayoutBinding(@NonNull LinearLayout rootView, @NonNull TextView activeCallInfo,
-      @NonNull LinearLayout activeCallLayout, @NonNull MaterialButton adminButton,
-      @NonNull Button callEndButton, @NonNull EditText chatInput,
-      @NonNull TextView chatMessagesView, @NonNull Button chatSendButton,
+      @NonNull MaterialCardView activeCallLayout, @NonNull MaterialButton adminButton,
+      @NonNull MaterialButton callEndButton, @NonNull TextInputEditText chatInput,
+      @NonNull TextView chatMessagesView, @NonNull MaterialButton chatSendButton,
       @NonNull MaterialButton connectButton, @NonNull RecyclerView liveVisitorsRecycler,
       @NonNull MaterialButton loginButton, @NonNull ProgressBar reconnectProgress,
       @NonNull MaterialButton registerButton, @NonNull TextView statusTextView,
@@ -134,7 +134,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       id = R.id.active_call_layout;
-      LinearLayout activeCallLayout = ViewBindings.findChildViewById(rootView, id);
+      MaterialCardView activeCallLayout = ViewBindings.findChildViewById(rootView, id);
       if (activeCallLayout == null) {
         break missingId;
       }
@@ -146,13 +146,13 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       id = R.id.call_end_button;
-      Button callEndButton = ViewBindings.findChildViewById(rootView, id);
+      MaterialButton callEndButton = ViewBindings.findChildViewById(rootView, id);
       if (callEndButton == null) {
         break missingId;
       }
 
       id = R.id.chat_input;
-      EditText chatInput = ViewBindings.findChildViewById(rootView, id);
+      TextInputEditText chatInput = ViewBindings.findChildViewById(rootView, id);
       if (chatInput == null) {
         break missingId;
       }
@@ -164,7 +164,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       id = R.id.chat_send_button;
-      Button chatSendButton = ViewBindings.findChildViewById(rootView, id);
+      MaterialButton chatSendButton = ViewBindings.findChildViewById(rootView, id);
       if (chatSendButton == null) {
         break missingId;
       }

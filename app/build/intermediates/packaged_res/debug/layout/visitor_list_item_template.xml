@@ -1,76 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="12dp"
-    android:background="#2E2E2E"
-    android:layout_marginBottom="8dp"
-    android:gravity="center_vertical">
+    android:layout_marginBottom="12dp"
+    app:cardBackgroundColor="#2E2E2E"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#40FFFFFF">
 
-    <!-- 1. Avatar Bild -->
-    <ImageView
-        android:id="@+id/visitor_avatar"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:src="@android:drawable/sym_def_app_icon"
-        android:background="#3A3A3A"
-        android:padding="8dp"
-        android:scaleType="centerCrop"
-        android:layout_marginEnd="12dp"
-        android:contentDescription="Avatar" />
-
-    <!-- 2. Text Bereich (Name & Domain) -->
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/visitor_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Unbekannter Besucher"
-            android:textSize="16sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold" />
+        <!-- 1. Avatar Bild mit modernem Design -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="16dp"
+            app:cardBackgroundColor="#3A3A3A"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="2dp">
 
-        <TextView
-            android:id="@+id/visitor_domain"
-            android:layout_width="wrap_content"
+            <ImageView
+                android:id="@+id/visitor_avatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@android:drawable/sym_def_app_icon"
+                android:padding="12dp"
+                android:scaleType="centerCrop"
+                android:contentDescription="Avatar" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 2. Text Bereich (Name & Domain) -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Lade Domain..."
-            android:textSize="12sp"
-            android:textColor="#BBBBBB" />
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/visitor_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Unbekannter Besucher"
+                android:textSize="16sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌐 "
+                    android:textSize="12sp"/>
+
+                <TextView
+                    android:id="@+id/visitor_domain"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Lade Domain..."
+                    android:textSize="13sp"
+                    android:textColor="#BBBBBB"
+                    android:fontFamily="sans-serif" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- 3. Anruf Button mit modernem Design -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/call_visitor_button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="📞 ANRUFEN"
+            app:backgroundTint="#00BCD4"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            app:cornerRadius="10dp"
+            app:elevation="4dp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginStart="8dp" />
+
+        <!-- 4. Optional: Chat Button (Standardmäßig versteckt) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/chat_visitor_button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="💬"
+            app:backgroundTint="#8BC34A"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:layout_marginStart="8dp"
+            android:visibility="gone"
+            app:cornerRadius="10dp"
+            app:elevation="4dp"
+            android:minWidth="48dp" />
+
     </LinearLayout>
 
-    <!-- 3. Anruf Button -->
-    <Button
-        android:id="@+id/call_visitor_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="ANRUFEN"
-        android:backgroundTint="#00BCD4"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:minHeight="40dp" />
-
-    <!-- 4. Optional: Chat Button (Standardmäßig versteckt) -->
-    <Button
-        android:id="@+id/chat_visitor_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="CHAT"
-        android:backgroundTint="#8BC34A"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:layout_marginStart="8dp"
-        android:visibility="gone"
-        android:minHeight="40dp" />
-
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>
