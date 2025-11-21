@@ -43,8 +43,8 @@
 27        android:extractNativeLibs="false"
 28        android:icon="@mipmap/ic_launcher"
 28-->/workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:12:9-43
-29        android:label="LuxuryCall Agent"
-29-->/workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:13:9-41
+29        android:label="2broCall"
+29-->/workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:13:9-33
 30        android:supportsRtl="true"
 30-->/workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:14:9-35
 31        android:theme="@style/Theme.SciFi" >

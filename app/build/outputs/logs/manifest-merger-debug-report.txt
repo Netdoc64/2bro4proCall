@@ -100,7 +100,7 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /home/codespace/.gradle/cac
 	android:supportsRtl
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:14:9-35
 	android:label
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:13:9-41
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:13:9-33
 	android:icon
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:12:9-43
 	android:allowBackup
