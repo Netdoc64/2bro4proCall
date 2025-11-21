@@ -26,7 +26,7 @@
         android:debuggable="true"
         android:extractNativeLibs="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="2broCall"
+        android:label="2bro4Call"
         android:supportsRtl="true"
         android:theme="@style/Theme.SciFi" >
         <activity
