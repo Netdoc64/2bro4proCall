@@ -182,6 +182,58 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 })
                 dlg.dismiss()
             }
+            .setNeutralButton("Registrieren") { dlg, _ ->
+                dlg.dismiss()
+                performRegisterUI()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun performRegisterUI() {
+        val nameInput = EditText(this).apply { hint = "Name (optional)" }
+        val emailInput = EditText(this).apply { hint = "Email" }
+        val passInput = EditText(this).apply { hint = "Password" }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 20, 40, 0)
+            addView(nameInput)
+            addView(emailInput)
+            addView(passInput)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Agent Registrierung")
+            .setView(layout)
+            .setPositiveButton("Registrieren") { dlg, _ ->
+                val name = nameInput.text.toString().takeIf { it.isNotBlank() }
+                val email = emailInput.text.toString()
+                val pass = passInput.text.toString()
+                if (email.isBlank() || pass.isBlank()) {
+                    Toast.makeText(this, "Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                statusTextView.text = "Status: Registriere..."
+                authClient.register(name, email, pass, object : AuthClient.RegisterCallback {
+                    override fun onSuccess(token: String, role: String?, rooms: List<String>) {
+                        runOnUiThread {
+                            statusTextView.text = "Status: Registrierung erfolgreich"
+                            currentToken = token
+                            if (rooms.isNotEmpty()) showRoomSelectionAndConnect(rooms, token) else {
+                                currentRoom = BUSINESS_ID
+                                signalingClient.connect(BUSINESS_ID, token)
+                            }
+                        }
+                    }
+
+                    override fun onFailure(message: String) {
+                        runOnUiThread {
+                            statusTextView.text = "Status: Registrierung fehlgeschlagen"
+                            Toast.makeText(this@AppActivity, "Register failed: $message", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                })
+                dlg.dismiss()
+            }
             .setNegativeButton("Abbrechen", null)
             .show()
     }

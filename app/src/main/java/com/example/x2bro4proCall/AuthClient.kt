@@ -37,6 +37,60 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
         fun onFailure(message: String)
     }
 
+    interface RegisterCallback {
+        fun onSuccess(token: String, role: String?, rooms: List<String>)
+        fun onFailure(message: String)
+    }
+
+    fun register(name: String?, email: String, password: String, cb: RegisterCallback) {
+        val url = "$baseUrl/api/register"
+        val json = JSONObject().apply {
+            put("email", email)
+            put("password", password)
+            if (!name.isNullOrBlank()) put("name", name)
+        }
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
+        val req = Request.Builder().url(url).post(body).build()
+        client.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                cb.onFailure("Network error: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!it.isSuccessful) {
+                        cb.onFailure("Register failed: ${it.code}")
+                        return
+                    }
+                    val text = it.body?.string() ?: ""
+                    try {
+                        val json = JSONObject(text)
+                        val token = json.optString("token", "")
+                        val role = json.optString("role", null)
+                        val roomsJson = json.optJSONArray("rooms")
+                        val rooms = mutableListOf<String>()
+                        if (roomsJson != null) {
+                            for (i in 0 until roomsJson.length()) {
+                                rooms.add(roomsJson.optString(i))
+                            }
+                        }
+                        if (token.isNotBlank()) {
+                            saveToken(token)
+                            saveRooms(rooms)
+                            cb.onSuccess(token, role, rooms)
+                        } else {
+                            // Some backends return success without token for register
+                            cb.onFailure("Register succeeded but no token returned")
+                        }
+                    } catch (e: Exception) {
+                        cb.onFailure("Invalid response: ${e.message}")
+                    }
+                }
+            }
+        })
+    }
+
     fun login(email: String, password: String, cb: LoginCallback) {
         val url = "$baseUrl/api/login"
         val json = JSONObject().apply {
