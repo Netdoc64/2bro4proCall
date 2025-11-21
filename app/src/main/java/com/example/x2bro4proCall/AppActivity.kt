@@ -40,6 +40,15 @@ data class Visitor(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+// Data Class für aktive Calls (Supervisor Monitoring)
+data class ActiveCall(
+    val sessionId: String,
+    val domainId: String,
+    val agentId: String?,
+    val startTime: Long,
+    val status: String // "waiting", "active", "ended"
+)
+
 // Die AppActivity implementiert das SignalingListener Interface (aus SignalingClient.kt)
 class AppActivity : AppCompatActivity(), SignalingListener {
 
@@ -63,6 +72,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private var currentRole: String? = null
     private val liveVisitors = mutableListOf<Visitor>()
     private lateinit var visitorAdapter: VisitorAdapter
+    
+    // Supervisor Monitoring
+    private var isMonitoring = false
+    private var monitoringRoomId: String? = null
+    private lateinit var monitoringClient: SignalingClient
 
     private var activeCallSessionId: String? = null
     // NOTE: Diese Domain-ID muss mit der ID im Backend übereinstimmen!
@@ -918,12 +932,252 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setMessage("Supervisor-Funktionen:\n\n" +
                 "• Live-Monitoring von Anrufen\n" +
                 "• Call-Statistiken\n" +
-                "• Agent-Performance\n\n" +
-                "Live-Monitoring kommt bald!")
-            .setPositiveButton("Live Anrufe anzeigen") { _, _ ->
-                Toast.makeText(this, "Feature in Entwicklung", Toast.LENGTH_SHORT).show()
+                "• Agent-Performance\n")
+            .setPositiveButton("📹 Live Calls überwachen") { _, _ ->
+                startLiveMonitoring()
+            }
+            .setNeutralButton("📊 Statistiken") { _, _ ->
+                showCallStatistics()
             }
             .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    private fun startLiveMonitoring() {
+        val token = currentToken ?: return
+        
+        // Lade aktive Calls aus der Datenbank
+        statusTextView.text = "Status: Lade aktive Calls..."
+        
+        val url = "https://$BACKEND_HOST/api/admin/data"
+        val client = okhttp3.OkHttpClient()
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        client.newCall(req).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                response.use {
+                    if (!it.isSuccessful) {
+                        runOnUiThread {
+                            Toast.makeText(this@AppActivity, "Fehler: ${it.code}", Toast.LENGTH_LONG).show()
+                        }
+                        return
+                    }
+                    
+                    // In einem realen System würden hier aktive Calls aus der DB kommen
+                    // Für Demo: Zeige Domain-Auswahl zum Monitoring
+                    val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
+                    val domainsArray = jsonData.optJSONArray("domains")
+                    
+                    runOnUiThread {
+                        showMonitoringDomainSelection(domainsArray)
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun showMonitoringDomainSelection(domainsArray: org.json.JSONArray?) {
+        if (domainsArray == null || domainsArray.length() == 0) {
+            Toast.makeText(this, "Keine Domains gefunden", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val domainList = mutableListOf<String>()
+        for (i in 0 until domainsArray.length()) {
+            val domain = domainsArray.getJSONObject(i)
+            domainList.add(domain.optString("id"))
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("Domain für Monitoring wählen")
+            .setItems(domainList.toTypedArray()) { _, which ->
+                val selectedDomain = domainList[which]
+                // Zeige aktive Calls dieser Domain
+                showActiveCallsForDomain(selectedDomain)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun showActiveCallsForDomain(domainId: String) {
+        // Simuliere aktive Calls (in Produktion: aus D1 calls Tabelle)
+        val activeCalls = listOf(
+            "Call 1: ${domainId}__session_abc123",
+            "Call 2: ${domainId}__session_def456",
+            "Call 3: ${domainId}__session_ghi789"
+        )
+        
+        if (activeCalls.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("✅ Keine aktiven Calls")
+                .setMessage("Aktuell keine Anrufe in $domainId aktiv.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("📹 Aktive Calls ($domainId)")
+            .setItems(activeCalls.toTypedArray()) { _, which ->
+                // Extrahiere Room-ID aus dem String
+                val roomId = activeCalls[which].substringAfter(": ")
+                joinCallAsMonitor(roomId)
+            }
+            .setNegativeButton("Zurück", null)
+            .show()
+    }
+    
+    private fun joinCallAsMonitor(roomId: String) {
+        val token = currentToken ?: return
+        
+        AlertDialog.Builder(this)
+            .setTitle("👁️ Monitoring-Modus")
+            .setMessage("Möchten Sie diesem Call beitreten?\n\n" +
+                "Room: $roomId\n\n" +
+                "Im Monitor-Modus können Sie:\n" +
+                "• Audio mithören\n" +
+                "• Chat-Nachrichten sehen\n" +
+                "• NICHT selbst sprechen/schreiben")
+            .setPositiveButton("🎬 Beitreten") { _, _ ->
+                startMonitoringCall(roomId, token)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun startMonitoringCall(roomId: String, token: String) {
+        isMonitoring = true
+        monitoringRoomId = roomId
+        
+        // Erstelle separaten SignalingClient für Monitoring
+        monitoringClient = SignalingClient(object : SignalingListener {
+            override fun onWebSocketOpen() {
+                runOnUiThread {
+                    statusTextView.text = "Status: 👁️ Monitoring $roomId"
+                    Toast.makeText(this@AppActivity, "Monitoring aktiv", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            override fun onNewSignalReceived(message: org.json.JSONObject) {
+                runOnUiThread {
+                    // Zeige Monitoring-Daten an
+                    handleMonitoringMessage(message)
+                }
+            }
+            
+            override fun onWebSocketClosed() {
+                runOnUiThread {
+                    statusTextView.text = "Status: Monitoring beendet"
+                    isMonitoring = false
+                }
+            }
+            
+            override fun onError(message: String) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Monitoring Error: $message", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onReconnecting(attempt: Int, delayMs: Int) {}
+            override fun onReconnectFailed() {}
+        }, BACKEND_HOST)
+        
+        // Verbinde mit mode=monitor Parameter
+        monitoringClient.connectWithMode(roomId, token, "monitor")
+        
+        // Zeige Monitoring-UI
+        showMonitoringUI(roomId)
+    }
+    
+    private fun handleMonitoringMessage(message: org.json.JSONObject) {
+        val type = message.optString("type")
+        
+        when (type) {
+            "chat" -> {
+                val sender = message.optString("senderRole", "Unknown")
+                val text = message.optString("text", "")
+                appendMonitoringLog("💬 [$sender]: $text")
+            }
+            "offer", "answer" -> {
+                appendMonitoringLog("🔊 WebRTC Signal: $type")
+            }
+            "system" -> {
+                val action = message.optString("action")
+                appendMonitoringLog("⚙️ System: $action")
+            }
+        }
+    }
+    
+    private fun appendMonitoringLog(text: String) {
+        val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        val logText = "[$timestamp] $text\n"
+        
+        // Füge zur Chat-View hinzu (oder eigenes Monitoring-TextView)
+        runOnUiThread {
+            val currentText = chatMessagesView.text.toString()
+            chatMessagesView.text = currentText + logText
+        }
+    }
+    
+    private fun showMonitoringUI(roomId: String) {
+        // Verstecke normale Call-UI, zeige Monitoring-Ansicht
+        liveVisitorsRecyclerView.visibility = View.GONE
+        activeCallLayout.visibility = View.VISIBLE
+        activeCallInfo.text = "👁️ Monitoring: $roomId"
+        
+        // Chat-Input deaktivieren (nur lesen)
+        chatInput.isEnabled = false
+        chatInput.hint = "Monitoring-Modus (nur lesen)"
+        chatSendButton.isEnabled = false
+        
+        // Ändere "Auflegen" Button zu "Monitoring beenden"
+        callEndButton.text = "MONITORING BEENDEN"
+        callEndButton.setOnClickListener {
+            stopMonitoring()
+        }
+    }
+    
+    private fun stopMonitoring() {
+        if (isMonitoring) {
+            monitoringClient.disconnect()
+            isMonitoring = false
+            monitoringRoomId = null
+        }
+        
+        // Zurück zur normalen Ansicht
+        showVisitorsTab()
+        chatInput.isEnabled = true
+        chatInput.hint = "Nachricht eingeben..."
+        chatSendButton.isEnabled = true
+        callEndButton.text = "AUFLEGEN"
+        callEndButton.setOnClickListener { endCall() }
+        chatMessagesView.text = ""
+        
+        statusTextView.text = "Status: Monitoring beendet"
+    }
+    
+    private fun showCallStatistics() {
+        // Platzhalter für Statistiken
+        AlertDialog.Builder(this)
+            .setTitle("📊 Call-Statistiken")
+            .setMessage("Statistik-Features:\n\n" +
+                "• Anzahl Calls pro Domain\n" +
+                "• Durchschnittliche Gesprächsdauer\n" +
+                "• Agent-Performance\n" +
+                "• Warteschlangen-Analyse\n\n" +
+                "Kommt in Kürze!")
+            .setPositiveButton("OK", null)
             .show()
     }
     

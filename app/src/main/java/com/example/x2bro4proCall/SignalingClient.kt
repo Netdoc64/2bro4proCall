@@ -33,6 +33,10 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     private var userInitiatedDisconnect = false
 
     fun connect(roomId: String, token: String) {
+        connectWithMode(roomId, token, "talk")
+    }
+    
+    fun connectWithMode(roomId: String, token: String, mode: String = "talk") {
         // store requested connection for automatic reconnects
         lastRoomId = roomId
         lastToken = token
@@ -42,13 +46,17 @@ class SignalingClient(private val listener: SignalingListener, private val backe
             // strip scheme
             backendHost.replaceFirst(Regex("^https?://"), "")
         } else backendHost
-        val fullUrl = "wss://$scheme/call/$roomId?token=$token"
+        val fullUrl = "wss://$scheme/call/$roomId?token=$token&mode=$mode"
         val request = Request.Builder().url(fullUrl).build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 listener.onWebSocketOpen()
-                Log.d("SignalingClient", "WebSocket connection opened.")
-                sendIdentifyPacket()
+                Log.d("SignalingClient", "WebSocket connection opened (mode=$mode).")
+                if (mode == "talk") {
+                    sendIdentifyPacket()
+                } else {
+                    sendMonitorIdentifyPacket()
+                }
                 // reset backoff
                 reconnectAttempts = 0
                 reconnecting = false
@@ -106,6 +114,15 @@ class SignalingClient(private val listener: SignalingListener, private val backe
             put("type", "identify")
             put("role", "agent")
             put("agentName", "Agent Max Mustermann (${android.os.Build.MODEL})")
+        }
+        send(identify)
+    }
+    
+    private fun sendMonitorIdentifyPacket() {
+        val identify = JSONObject().apply {
+            put("type", "identify")
+            put("role", "monitor")
+            put("agentName", "Supervisor (${android.os.Build.MODEL})")
         }
         send(identify)
     }
