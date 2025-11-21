@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.luxurycallapp">
+    package="com.example.x2bro4proCall">
 
     <!-- WebRTC und WebSocket Berechtigungen -->
     <uses-permission android:name="android.permission.INTERNET"/>
