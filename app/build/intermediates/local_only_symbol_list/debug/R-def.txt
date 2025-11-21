@@ -9,6 +9,7 @@ color space_background_start
 color surface_translucent
 color text_primary
 color text_secondary
+drawable app_logo
 drawable bg_space_gradient
 drawable card_panel
 drawable ic_launcher_foreground

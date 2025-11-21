@@ -44,6 +44,10 @@
         "source": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-main-35:/layout/activity_app_layout.xml"
     },
     {
+        "merged": "com.example.x2bro4proCall.app-merged_res-33:/drawable_app_logo.webp.flat",
+        "source": "com.example.x2bro4proCall.app-main-35:/drawable/app_logo.webp"
+    },
+    {
         "merged": "com.example.x2bro4proCall.app-merged_res-33:/layout_activity_app_layout.xml.flat",
         "source": "com.example.x2bro4proCall.app-main-35:/layout/activity_app_layout.xml"
     }

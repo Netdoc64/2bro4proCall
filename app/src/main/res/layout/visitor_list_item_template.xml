@@ -30,7 +30,7 @@
                 android:id="@+id/visitor_avatar"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:src="@android:drawable/sym_def_app_icon"
+                android:src="@drawable/app_logo"
                 android:padding="12dp"
                 android:scaleType="centerCrop"
                 android:contentDescription="Avatar" />
