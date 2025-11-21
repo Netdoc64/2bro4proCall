@@ -10,7 +10,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } # Hier liegt die Rettung
+        maven { url 'https://jitpack.io' }
     }
 }
 rootProject.name = "2bro4proCall"
