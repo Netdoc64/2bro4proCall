@@ -18,7 +18,7 @@ class SignalingClient(private val listener: SignalingListener) {
     private val client = OkHttpClient()
     private var webSocket: WebSocket? = null
     // ACHTUNG: Hier muss deine tatsächliche Cloudflare Worker WSS URL rein
-    private val BASE_WSS_URL = "wss://dein-worker.dein-name.workers.dev/call/"
+    private val BASE_WSS_URL = "wss://call-server.netdoc64.workers.dev/call/"
 
     fun connect(businessId: String) {
         val fullUrl = "${BASE_WSS_URL}${businessId}?role=agent"
