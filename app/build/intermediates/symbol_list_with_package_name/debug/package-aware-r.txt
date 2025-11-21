@@ -3032,6 +3032,7 @@ id active_call_info
 id active_call_layout
 id activity_chooser_view_content
 id add
+id admin_button
 id alertTitle
 id aligned
 id all
@@ -3362,6 +3363,7 @@ id stop
 id stretch
 id submenuarrow
 id submit_area
+id supervisor_button
 id tabMode
 id tag_accessibility_actions
 id tag_accessibility_clickable_spans

@@ -14,6 +14,7 @@ drawable card_panel
 drawable ic_launcher_foreground
 id active_call_info
 id active_call_layout
+id admin_button
 id call_end_button
 id call_visitor_button
 id chat_input
@@ -26,6 +27,7 @@ id login_button
 id reconnect_progress
 id register_button
 id status_text_view
+id supervisor_button
 id visitor_avatar
 id visitor_data_label
 id visitor_data_text_view

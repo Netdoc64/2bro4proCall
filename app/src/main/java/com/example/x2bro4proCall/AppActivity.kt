@@ -28,6 +28,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONObject
 import org.webrtc.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 // Data Class für einen aktiven Web-Besucher
 data class Visitor(
@@ -872,8 +874,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
         
         val client = okhttp3.OkHttpClient()
-        val mediaType = okhttp3.MediaType.Companion.get("application/json")
-        val body = okhttp3.RequestBody.Companion.create(json.toString(), mediaType)
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
         
         val req = okhttp3.Request.Builder()
             .url(url)

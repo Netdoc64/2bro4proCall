@@ -31,6 +31,9 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final LinearLayout activeCallLayout;
 
   @NonNull
+  public final MaterialButton adminButton;
+
+  @NonNull
   public final Button callEndButton;
 
   @NonNull
@@ -61,22 +64,27 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final TextView statusTextView;
 
   @NonNull
+  public final MaterialButton supervisorButton;
+
+  @NonNull
   public final TextView visitorDataLabel;
 
   @NonNull
   public final TextView visitorDataTextView;
 
   private ActivityAppLayoutBinding(@NonNull LinearLayout rootView, @NonNull TextView activeCallInfo,
-      @NonNull LinearLayout activeCallLayout, @NonNull Button callEndButton,
-      @NonNull EditText chatInput, @NonNull TextView chatMessagesView,
-      @NonNull Button chatSendButton, @NonNull MaterialButton connectButton,
-      @NonNull RecyclerView liveVisitorsRecycler, @NonNull MaterialButton loginButton,
-      @NonNull ProgressBar reconnectProgress, @NonNull MaterialButton registerButton,
-      @NonNull TextView statusTextView, @NonNull TextView visitorDataLabel,
+      @NonNull LinearLayout activeCallLayout, @NonNull MaterialButton adminButton,
+      @NonNull Button callEndButton, @NonNull EditText chatInput,
+      @NonNull TextView chatMessagesView, @NonNull Button chatSendButton,
+      @NonNull MaterialButton connectButton, @NonNull RecyclerView liveVisitorsRecycler,
+      @NonNull MaterialButton loginButton, @NonNull ProgressBar reconnectProgress,
+      @NonNull MaterialButton registerButton, @NonNull TextView statusTextView,
+      @NonNull MaterialButton supervisorButton, @NonNull TextView visitorDataLabel,
       @NonNull TextView visitorDataTextView) {
     this.rootView = rootView;
     this.activeCallInfo = activeCallInfo;
     this.activeCallLayout = activeCallLayout;
+    this.adminButton = adminButton;
     this.callEndButton = callEndButton;
     this.chatInput = chatInput;
     this.chatMessagesView = chatMessagesView;
@@ -87,6 +95,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
     this.reconnectProgress = reconnectProgress;
     this.registerButton = registerButton;
     this.statusTextView = statusTextView;
+    this.supervisorButton = supervisorButton;
     this.visitorDataLabel = visitorDataLabel;
     this.visitorDataTextView = visitorDataTextView;
   }
@@ -127,6 +136,12 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       id = R.id.active_call_layout;
       LinearLayout activeCallLayout = ViewBindings.findChildViewById(rootView, id);
       if (activeCallLayout == null) {
+        break missingId;
+      }
+
+      id = R.id.admin_button;
+      MaterialButton adminButton = ViewBindings.findChildViewById(rootView, id);
+      if (adminButton == null) {
         break missingId;
       }
 
@@ -190,6 +205,12 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.supervisor_button;
+      MaterialButton supervisorButton = ViewBindings.findChildViewById(rootView, id);
+      if (supervisorButton == null) {
+        break missingId;
+      }
+
       id = R.id.visitor_data_label;
       TextView visitorDataLabel = ViewBindings.findChildViewById(rootView, id);
       if (visitorDataLabel == null) {
@@ -203,9 +224,9 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       return new ActivityAppLayoutBinding((LinearLayout) rootView, activeCallInfo, activeCallLayout,
-          callEndButton, chatInput, chatMessagesView, chatSendButton, connectButton,
+          adminButton, callEndButton, chatInput, chatMessagesView, chatSendButton, connectButton,
           liveVisitorsRecycler, loginButton, reconnectProgress, registerButton, statusTextView,
-          visitorDataLabel, visitorDataTextView);
+          supervisorButton, visitorDataLabel, visitorDataTextView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));
