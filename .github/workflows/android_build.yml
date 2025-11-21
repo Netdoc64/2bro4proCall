@@ -15,7 +15,7 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # 2. Java Umgebung (JDK 17) einrichten
+    # 2. Java Umgebung (JDK 17) einrichten - WICHTIG für Gradle 8.0
     - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
@@ -23,21 +23,22 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    # 3. Berechtigungen für den Builder setzen (Wichtig!)
+    # 3. Berechtigungen für den Builder setzen
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew || true
 
-    # 4. App bauen (Debug Version)
-    # Wir nutzen 'gradle' direkt, falls du keinen Wrapper hast, oder versuchen den Wrapper
+    # 4. App bauen
+    # Hinweis: Wir verlassen uns hier stark auf den Wrapper (gradlew).
     - name: Build with Gradle
       run: |
         if [ -f "./gradlew" ]; then
             ./gradlew assembleDebug --stacktrace
         else
+            echo "WARNUNG: Kein gradlew gefunden, nutze System-Gradle (könnte veraltet sein)"
             gradle assembleDebug --stacktrace
         fi
 
-    # 5. Die fertige APK finden und hochladen
+    # 5. Die fertige APK hochladen
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
