@@ -17,6 +17,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.content.ClipData
+import android.content.ClipboardManager
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -74,6 +79,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // --- Activity Lifecycle ---
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Global crash logger: write uncaught exceptions to a file so user can retrieve them
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val sw = StringWriter()
+                throwable.printStackTrace(PrintWriter(sw))
+                val text = "Timestamp: ${java.time.Instant.now()}\nThread: ${thread.name}\n" + sw.toString()
+                val f = File(filesDir, "last_crash.log")
+                f.writeText(text)
+            } catch (e: Exception) {
+                // ignore
+            }
+            // pass to original handler (may kill process)
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
+
         setContentView(R.layout.activity_app_layout) 
         
         // 1. UI-Referenzen initialisieren (Muss mit XML IDs übereinstimmen)
@@ -124,6 +145,35 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
         // 4. Ensure audio permission before initializing WebRTC and network clients
         ensureAudioPermissionThenInit()
+
+        // If a crash log exists from previous run, show it to the user so they can copy/send it
+        showCrashIfExists()
+    }
+
+    private fun showCrashIfExists() {
+        try {
+            val f = File(filesDir, "last_crash.log")
+            if (f.exists()) {
+                val text = f.readText()
+                AlertDialog.Builder(this)
+                    .setTitle("Letzter Crash-Log gefunden")
+                    .setMessage(text.take(4000))
+                    .setPositiveButton("Kopieren") { _, _ ->
+                        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("crash_log", text)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(this, "Log kopiert", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNeutralButton("Löschen") { _, _ ->
+                        f.delete()
+                        Toast.makeText(this, "Log gelöscht", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("Schließen", null)
+                    .show()
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
     }
 
     // Request code for audio permission
