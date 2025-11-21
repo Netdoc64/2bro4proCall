@@ -73,10 +73,16 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // 1. UI-Referenzen initialisieren (Muss mit XML IDs übereinstimmen)
         statusTextView = findViewById(R.id.status_text_view)
         connectButton = findViewById(R.id.connect_button)
+        val loginButton: Button = findViewById(R.id.login_button)
+        val registerButton: Button = findViewById(R.id.register_button)
         liveVisitorsRecyclerView = findViewById(R.id.live_visitors_recycler) 
         activeCallLayout = findViewById(R.id.active_call_layout)
         callEndButton = findViewById(R.id.call_end_button)
         activeCallInfo = findViewById(R.id.active_call_info)
+
+        // Login/Register visible buttons
+        loginButton.setOnClickListener { performLoginUI() }
+        registerButton.setOnClickListener { performRegisterUI() }
         
         // 2. Adapter und RecyclerView
         visitorAdapter = VisitorAdapter(liveVisitors, this::generateOffer, this)

@@ -35,7 +35,38 @@
         android:backgroundTint="#4CAF50"
         android:textColor="@android:color/white"
         android:padding="12dp"
-        android:layout_marginBottom="24dp"/>
+        android:layout_marginBottom="12dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="24dp">
+
+        <Button
+            android:id="@+id/login_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Login"
+            android:backgroundTint="#2196F3"
+            android:textColor="@android:color/white"
+            android:padding="10dp"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/register_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Registrieren"
+            android:backgroundTint="#03A9F4"
+            android:textColor="@android:color/white"
+            android:padding="10dp"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
 
     <!-- 2. TAB: LIVE BESUCHER LISTE (Sichtbar wenn kein Anruf) -->
     <!-- Dieser Bereich wird standardmäßig angezeigt -->
