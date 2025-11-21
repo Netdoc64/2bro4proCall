@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.EditText
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,6 +13,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ProgressBar
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -109,7 +114,39 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             }
         }
 
-        // 4. Clients initialisieren und verbinden
+        // 4. Ensure audio permission before initializing WebRTC and network clients
+        ensureAudioPermissionThenInit()
+    }
+
+    // Request code for audio permission
+    private val REQ_RECORD_AUDIO = 1001
+
+    private fun ensureAudioPermissionThenInit() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startClientsAndAutoConnect()
+        } else {
+            // Request runtime permission
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_RECORD_AUDIO)
+        }
+    }
+
+    // Called after permission dialog
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_RECORD_AUDIO) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Audio permission granted", Toast.LENGTH_SHORT).show()
+                startClientsAndAutoConnect()
+            } else {
+                Toast.makeText(this, "Audio permission is required for calls", Toast.LENGTH_LONG).show()
+                // Disable call/connect UI to prevent errors
+                findViewById<Button>(R.id.connect_button).isEnabled = false
+            }
+        }
+    }
+
+    // Move existing client initialization into its own method so we can call it after permission granted
+    private fun startClientsAndAutoConnect() {
         initializeWebRTC()
         authClient = AuthClient(this, "https://$BACKEND_HOST")
         signalingClient = SignalingClient(this, BACKEND_HOST)
@@ -136,7 +173,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             }
             signalingClient.send(candidateJson)
         }
-        
+
         showVisitorsTab()
     }
 
@@ -147,8 +184,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     private fun performLoginUI() {
-        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
-        val passInput = EditText(this).apply { hint = "Password"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
+        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
+        val passInput = EditText(this).apply {
+            hint = "Password"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            transformationMethod = PasswordTransformationMethod.getInstance()
+        }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 20, 40, 0)
@@ -198,9 +239,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     private fun performRegisterUI() {
-        val nameInput = EditText(this).apply { hint = "Name (optional)"; inputType = InputType.TYPE_TEXT_VARIATION_PERSON_NAME }
-        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
-        val passInput = EditText(this).apply { hint = "Password"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
+        val nameInput = EditText(this).apply { hint = "Name (optional)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME }
+        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
+        val passInput = EditText(this).apply {
+            hint = "Password"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            transformationMethod = PasswordTransformationMethod.getInstance()
+        }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 20, 40, 0)

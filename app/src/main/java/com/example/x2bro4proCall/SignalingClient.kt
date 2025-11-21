@@ -112,6 +112,17 @@ class SignalingClient(private val listener: SignalingListener, private val backe
 
     private fun scheduleReconnectIfNeeded() {
         if (reconnecting) return
+        // If we don't have connection params (room/token) or token is blank,
+        // don't attempt automatic reconnects. This prevents reconnect loops
+        // when the user is not logged in or token has been cleared elsewhere.
+        val roomNow = lastRoomId
+        val tokenNow = lastToken
+        if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
+            Log.d("SignalingClient", "Not scheduling reconnect: missing room or token (room=$roomNow, tokenBlank=${tokenNow.isNullOrBlank()})")
+            listener.onReconnectFailed()
+            return
+        }
+
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
             Log.d("SignalingClient", "Max reconnect attempts reached: $reconnectAttempts")
             listener.onReconnectFailed()
