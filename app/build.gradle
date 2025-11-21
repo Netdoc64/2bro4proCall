@@ -1,25 +1,32 @@
-// app/build.gradle
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
 
 android {
+    // Namespace ist PFLICHT in Gradle 8.0+ (ersetzt package im Manifest)
+    namespace "com.example.x2bro4proCall" 
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.2bro4proCall"
+        applicationId "com.example.x2bro4proCall" // Achtung: Keine Zahlen am Anfang von Package-Namen (2bro... -> bro...)
         minSdk 24
         targetSdk 34
         versionCode 1
         versionName "1.0"
     }
-    
-    // Kotlin Version konfigurieren
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    
     kotlinOptions {
         jvmTarget = '1.8'
+    }
+    
+    buildFeatures {
+        viewBinding true // Optional, aber oft nützlich
     }
 }
 
@@ -27,14 +34,14 @@ dependencies {
     // AndroidX & UI
     implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.10.0") // Für moderne UI-Komponenten
+    implementation("com.google.android.material:material:1.10.0")
 
-    // WebRTC: Die kritische Abhängigkeit für Audio/Video-Streaming
-    implementation("org.webrtc:google-webrtc:1.0.32006") 
+    // WebRTC
+    implementation("org.webrtc:google-webrtc:1.0.32006")
 
-    // OkHttp: Für die WebSocket-Verbindung mit dem Cloudflare Worker
+    // OkHttp
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // RecyclerView für die Besucherliste
+    // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.1")
 }
