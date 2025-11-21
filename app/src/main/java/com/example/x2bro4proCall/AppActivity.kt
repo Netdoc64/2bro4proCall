@@ -2,6 +2,7 @@ package com.example.x2bro4proCall
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.EditText
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,7 +10,9 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONObject
@@ -39,12 +42,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // Daten und Clients
     private lateinit var signalingClient: SignalingClient
     private lateinit var webRtcClient: PeerConnectionClient
+    private var currentRoom: String? = null
+    private var currentToken: String? = null
     private val liveVisitors = mutableListOf<Visitor>()
     private lateinit var visitorAdapter: VisitorAdapter
 
     private var activeCallSessionId: String? = null
     // NOTE: Diese ID muss mit der ID im Web-Widget übereinstimmen!
-    private val BUSINESS_ID = "biz_rolex_muenchen_01" 
+    private val BUSINESS_ID = "biz_rolex_muenchen_01"
+    // Backend host (ohne scheme), aus Spezifikation
+    private val BACKEND_HOST = "call-server.netdoc64.workers.dev"
+    private lateinit var authClient: AuthClient
 
     // --- WebRTC Setup ---
     private fun initializeWebRTC() {
@@ -77,14 +85,50 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         // 3. Event Listener
         callEndButton.setOnClickListener { endCall() }
-        connectButton.setOnClickListener { 
-            signalingClient.connect(BUSINESS_ID) 
+        connectButton.setOnClickListener {
+            // manual reconnect / connect using known token/room
+            val token = currentToken ?: authClient.getToken()
+            val room = currentRoom ?: BUSINESS_ID
+            if (token != null) {
+                statusTextView.text = "Status: Manueller Verbindungsaufbau..."
+                signalingClient.connect(room, token)
+                currentRoom = room
+                currentToken = token
+                // show progress bar while connecting
+                findViewById<ProgressBar>(R.id.reconnect_progress).visibility = View.VISIBLE
+                connectButton.isEnabled = false
+            } else {
+                performLoginUI()
+            }
         }
 
         // 4. Clients initialisieren und verbinden
         initializeWebRTC()
-        signalingClient = SignalingClient(this)
-        signalingClient.connect(BUSINESS_ID) 
+        authClient = AuthClient(this, "https://$BACKEND_HOST")
+        signalingClient = SignalingClient(this, BACKEND_HOST)
+        // Auto-connect if token exists
+        val savedToken = authClient.getToken()
+        if (savedToken != null) {
+            val rooms = authClient.getRooms()
+            val room = rooms.firstOrNull() ?: BUSINESS_ID
+            currentRoom = room
+            currentToken = savedToken
+            signalingClient.connect(room, savedToken)
+        } else {
+            // prompt login
+            performLoginUI()
+        }
+        // forward local ICE candidates to signaling worker
+        webRtcClient.onIceCandidateCallback = { candidate ->
+            val candidateJson = JSONObject().apply {
+                put("type", "candidate")
+                put("candidate", candidate.sdp)
+                put("sdpMid", candidate.sdpMid)
+                put("sdpMLineIndex", candidate.sdpMLineIndex)
+                put("targetSessionId", activeCallSessionId ?: JSONObject.NULL)
+            }
+            signalingClient.send(candidateJson)
+        }
         
         showVisitorsTab()
     }
@@ -93,6 +137,70 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         super.onDestroy()
         signalingClient.disconnect()
         webRtcClient.close()
+    }
+
+    private fun performLoginUI() {
+        val emailInput = EditText(this).apply { hint = "Email" }
+        val passInput = EditText(this).apply { hint = "Password" }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 20, 40, 0)
+            addView(emailInput)
+            addView(passInput)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Agent Login")
+            .setView(layout)
+            .setPositiveButton("Login") { dlg, _ ->
+                val email = emailInput.text.toString()
+                val pass = passInput.text.toString()
+                if (email.isBlank() || pass.isBlank()) {
+                    Toast.makeText(this, "Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                statusTextView.text = "Status: Authentifiziere..."
+                authClient.login(email, pass, object : AuthClient.LoginCallback {
+                    override fun onSuccess(token: String, role: String?, rooms: List<String>) {
+                        runOnUiThread {
+                            statusTextView.text = "Status: Auth erfolgreich"
+                            // store token
+                            currentToken = token
+                            // connect to first room or show selection
+                            if (rooms.isNotEmpty()) showRoomSelectionAndConnect(rooms, token) else {
+                                currentRoom = BUSINESS_ID
+                                signalingClient.connect(BUSINESS_ID, token)
+                            }
+                        }
+                    }
+
+                    override fun onFailure(message: String) {
+                        runOnUiThread {
+                            statusTextView.text = "Status: Auth fehlgeschlagen"
+                            Toast.makeText(this@AppActivity, "Login failed: $message", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                })
+                dlg.dismiss()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun showRoomSelectionAndConnect(rooms: List<String>, token: String) {
+        runOnUiThread {
+            val arr = rooms.toTypedArray()
+            AlertDialog.Builder(this)
+                .setTitle("Wähle Raum")
+                .setItems(arr) { _, which ->
+                    val room = arr[which]
+                    statusTextView.text = "Status: Verbinde zu $room"
+                    currentRoom = room
+                    currentToken = token
+                    signalingClient.connect(room, token)
+                }
+                .setCancelable(true)
+                .show()
+        }
     }
 
     // --- UI Management ---
@@ -115,12 +223,36 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         runOnUiThread { statusTextView.text = "Status: Online und bereit (Raum: $BUSINESS_ID)" }
     }
 
+    override fun onReconnecting(attempt: Int, delayMs: Int) {
+        runOnUiThread {
+            statusTextView.text = "Status: Verbindung verloren — reconnect Versuch $attempt in ${delayMs}ms"
+            val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
+            pb.visibility = View.VISIBLE
+            connectButton.isEnabled = false
+        }
+    }
+
+    override fun onReconnectFailed() {
+        runOnUiThread {
+            statusTextView.text = "Status: Verbindung konnte nicht wiederhergestellt werden"
+            val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
+            pb.visibility = View.GONE
+            connectButton.isEnabled = true
+            Toast.makeText(this, "Automatischer Reconnect fehlgeschlagen", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onWebSocketClosed() {
         runOnUiThread { statusTextView.text = "Status: Getrennt (Versuche Reconnect...)" }
     }
 
     override fun onError(message: String) {
-        runOnUiThread { Toast.makeText(this, "WS Error: $message", Toast.LENGTH_LONG).show() }
+        runOnUiThread {
+            Toast.makeText(this, "WS Error: $message", Toast.LENGTH_LONG).show()
+            val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
+            pb.visibility = View.GONE
+            connectButton.isEnabled = true
+        }
     }
 
     override fun onNewSignalReceived(message: JSONObject) {
@@ -280,6 +412,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // 2. PeerConnectionClient: WebRTC-Logik (unverändert)
     class PeerConnectionClient(factory: PeerConnectionFactory) {
         var peerConnection: PeerConnection? = null
+        var onIceCandidateCallback: ((IceCandidate) -> Unit)? = null
         private val iceServers = listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
         )
@@ -287,7 +420,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         init {
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
             peerConnection = factory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
-                override fun onIceCandidate(candidate: IceCandidate) { /* Signal to worker */ }
+                override fun onIceCandidate(candidate: IceCandidate) { onIceCandidateCallback?.invoke(candidate) }
                 override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) {}
                 override fun onAddStream(stream: MediaStream) {}
                 override fun onDataChannel(dataChannel: DataChannel) {}

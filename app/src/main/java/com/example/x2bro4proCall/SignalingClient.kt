@@ -10,41 +10,72 @@ interface SignalingListener {
     fun onNewSignalReceived(message: JSONObject)
     fun onWebSocketClosed()
     fun onError(message: String)
+    // called when an automatic reconnect is scheduled (attempt number, delay ms)
+    fun onReconnecting(attempt: Int, delayMs: Int)
+    // called when reconnect gives up (max attempts reached)
+    fun onReconnectFailed()
 }
 
-class SignalingClient(private val listener: SignalingListener) {
-    // ... (Code unverändert, aber es unterstützt jetzt die Business-ID aus der AppActivity)
-    
+class SignalingClient(private val listener: SignalingListener, private val backendHost: String) {
     private val client = OkHttpClient()
     private var webSocket: WebSocket? = null
-    // ACHTUNG: Hier muss deine tatsächliche Cloudflare Worker WSS URL rein
-    private val BASE_WSS_URL = "wss://call-server.netdoc64.workers.dev/call/"
+    private var reconnectAttempts = 0
+    private var reconnecting = false
+    private val MAX_RECONNECT_ATTEMPTS = 8
+    private val JITTER_PERCENT = 0.2 // +/- 20%
 
-    fun connect(businessId: String) {
-        val fullUrl = "${BASE_WSS_URL}${businessId}?role=agent"
+    // store last connection params so reconnect can retry automatically
+    @Volatile
+    private var lastRoomId: String? = null
+    @Volatile
+    private var lastToken: String? = null
+    @Volatile
+    private var userInitiatedDisconnect = false
+
+    fun connect(roomId: String, token: String) {
+        // store requested connection for automatic reconnects
+        lastRoomId = roomId
+        lastToken = token
+        userInitiatedDisconnect = false
+
+        val scheme = if (backendHost.startsWith("http")) {
+            // strip scheme
+            backendHost.replaceFirst(Regex("^https?://"), "")
+        } else backendHost
+        val fullUrl = "wss://$scheme/call/$roomId?token=$token"
         val request = Request.Builder().url(fullUrl).build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 listener.onWebSocketOpen()
                 Log.d("SignalingClient", "WebSocket connection opened.")
-                sendIdentifyPacket() 
+                sendIdentifyPacket()
+                // reset backoff
+                reconnectAttempts = 0
+                reconnecting = false
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val json = JSONObject(text)
-                    // Weiterleitung der JSON-Nachricht an die Activity
-                    listener.onNewSignalReceived(json)
+                    // Dispatch known message types
+                    val type = json.optString("type", "")
+                    when (type) {
+                        "offer", "answer", "candidate", "system" -> listener.onNewSignalReceived(json)
+                        else -> listener.onNewSignalReceived(json)
+                    }
                 } catch (e: Exception) {
                     Log.e("SignalingClient", "Failed to parse message: $text", e)
                 }
             }
-            // ... (onClosing, onFailure wie zuvor)
+
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 listener.onWebSocketClosed()
+                // schedule reconnect only when not a user-initiated close
+                if (!userInitiatedDisconnect) scheduleReconnectIfNeeded()
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 listener.onError("Connection failed: ${t.message}")
+                if (!userInitiatedDisconnect) scheduleReconnectIfNeeded()
             }
         })
     }
@@ -58,8 +89,16 @@ class SignalingClient(private val listener: SignalingListener) {
     }
     
     fun disconnect() {
-        webSocket?.close(1000, "App disconnected")
-        webSocket = null
+        // mark as user requested to avoid reconnect attempts
+        userInitiatedDisconnect = true
+        try {
+            webSocket?.close(1000, "App disconnected")
+        } finally {
+            webSocket = null
+            // clear stored params so reconnect won't happen
+            lastRoomId = null
+            lastToken = null
+        }
     }
 
     private fun sendIdentifyPacket() {
@@ -69,5 +108,50 @@ class SignalingClient(private val listener: SignalingListener) {
             put("agentName", "Agent Max Mustermann (${android.os.Build.MODEL})")
         }
         send(identify)
+    }
+
+    private fun scheduleReconnectIfNeeded() {
+        if (reconnecting) return
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            Log.d("SignalingClient", "Max reconnect attempts reached: $reconnectAttempts")
+            listener.onReconnectFailed()
+            return
+        }
+        reconnecting = true
+        reconnectAttempts++
+        var delayMs = calculateBackoffMs(reconnectAttempts)
+        // add jitter +/- JITTER_PERCENT
+        val jitterRange = (delayMs * JITTER_PERCENT).toInt()
+        val jitter = (kotlin.random.Random.Default.nextInt(-jitterRange, jitterRange + 1))
+        delayMs = (delayMs + jitter).coerceAtLeast(0)
+        Log.d("SignalingClient", "Scheduling reconnect in ${delayMs}ms (attempt $reconnectAttempts, jitter=$jitter)")
+        // notify listener about reconnect schedule
+        listener.onReconnecting(reconnectAttempts, delayMs)
+
+        Thread {
+            try {
+                Thread.sleep(delayMs.toLong())
+            } catch (e: InterruptedException) {
+            }
+            // only reconnect if we have stored params and the user didn't explicitly disconnect
+            val room = lastRoomId
+            val token = lastToken
+            if (!userInitiatedDisconnect && room != null && token != null) {
+                try {
+                    Log.d("SignalingClient", "Attempting automatic reconnect to $room")
+                    connect(room, token)
+                } catch (e: Exception) {
+                    Log.e("SignalingClient", "Reconnect attempt failed: ${e.message}")
+                }
+            }
+            reconnecting = false
+        }.start()
+    }
+
+    private fun calculateBackoffMs(attempts: Int): Int {
+        val base = 1000 // 1s
+        val max = 60_000 // 60s
+        val exp = (base * Math.pow(2.0, (attempts - 1).toDouble())).toInt()
+        return Math.min(exp, max)
     }
 }
