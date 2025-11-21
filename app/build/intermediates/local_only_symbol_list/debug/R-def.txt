@@ -1,6 +1,16 @@
 R_DEF: Internal format may change without notice
 local
-color launcher_bg
+color accent_green
+color neon_cyan
+color neon_magenta
+color panel_dark
+color space_background_end
+color space_background_start
+color surface_translucent
+color text_primary
+color text_secondary
+drawable bg_space_gradient
+drawable card_panel
 drawable ic_launcher_foreground
 id active_call_info
 id active_call_layout
@@ -9,6 +19,9 @@ id call_visitor_button
 id chat_visitor_button
 id connect_button
 id live_visitors_recycler
+id login_button
+id reconnect_progress
+id register_button
 id status_text_view
 id visitor_avatar
 id visitor_data_label
@@ -18,3 +31,5 @@ id visitor_name
 layout activity_app_layout
 layout visitor_list_item_template
 mipmap ic_launcher
+style Theme.SciFi
+style Widget.SciFi.Button

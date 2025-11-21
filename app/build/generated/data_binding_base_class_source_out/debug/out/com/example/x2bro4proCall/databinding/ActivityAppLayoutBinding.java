@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -13,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.example.x2bro4proCall.R;
+import com.google.android.material.button.MaterialButton;
 import java.lang.NullPointerException;
 import java.lang.Override;
 import java.lang.String;
@@ -31,10 +33,19 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final Button callEndButton;
 
   @NonNull
-  public final Button connectButton;
+  public final MaterialButton connectButton;
 
   @NonNull
   public final RecyclerView liveVisitorsRecycler;
+
+  @NonNull
+  public final MaterialButton loginButton;
+
+  @NonNull
+  public final ProgressBar reconnectProgress;
+
+  @NonNull
+  public final MaterialButton registerButton;
 
   @NonNull
   public final TextView statusTextView;
@@ -47,15 +58,19 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
 
   private ActivityAppLayoutBinding(@NonNull LinearLayout rootView, @NonNull TextView activeCallInfo,
       @NonNull LinearLayout activeCallLayout, @NonNull Button callEndButton,
-      @NonNull Button connectButton, @NonNull RecyclerView liveVisitorsRecycler,
-      @NonNull TextView statusTextView, @NonNull TextView visitorDataLabel,
-      @NonNull TextView visitorDataTextView) {
+      @NonNull MaterialButton connectButton, @NonNull RecyclerView liveVisitorsRecycler,
+      @NonNull MaterialButton loginButton, @NonNull ProgressBar reconnectProgress,
+      @NonNull MaterialButton registerButton, @NonNull TextView statusTextView,
+      @NonNull TextView visitorDataLabel, @NonNull TextView visitorDataTextView) {
     this.rootView = rootView;
     this.activeCallInfo = activeCallInfo;
     this.activeCallLayout = activeCallLayout;
     this.callEndButton = callEndButton;
     this.connectButton = connectButton;
     this.liveVisitorsRecycler = liveVisitorsRecycler;
+    this.loginButton = loginButton;
+    this.reconnectProgress = reconnectProgress;
+    this.registerButton = registerButton;
     this.statusTextView = statusTextView;
     this.visitorDataLabel = visitorDataLabel;
     this.visitorDataTextView = visitorDataTextView;
@@ -107,7 +122,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       id = R.id.connect_button;
-      Button connectButton = ViewBindings.findChildViewById(rootView, id);
+      MaterialButton connectButton = ViewBindings.findChildViewById(rootView, id);
       if (connectButton == null) {
         break missingId;
       }
@@ -115,6 +130,24 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       id = R.id.live_visitors_recycler;
       RecyclerView liveVisitorsRecycler = ViewBindings.findChildViewById(rootView, id);
       if (liveVisitorsRecycler == null) {
+        break missingId;
+      }
+
+      id = R.id.login_button;
+      MaterialButton loginButton = ViewBindings.findChildViewById(rootView, id);
+      if (loginButton == null) {
+        break missingId;
+      }
+
+      id = R.id.reconnect_progress;
+      ProgressBar reconnectProgress = ViewBindings.findChildViewById(rootView, id);
+      if (reconnectProgress == null) {
+        break missingId;
+      }
+
+      id = R.id.register_button;
+      MaterialButton registerButton = ViewBindings.findChildViewById(rootView, id);
+      if (registerButton == null) {
         break missingId;
       }
 
@@ -137,8 +170,8 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       }
 
       return new ActivityAppLayoutBinding((LinearLayout) rootView, activeCallInfo, activeCallLayout,
-          callEndButton, connectButton, liveVisitorsRecycler, statusTextView, visitorDataLabel,
-          visitorDataTextView);
+          callEndButton, connectButton, liveVisitorsRecycler, loginButton, reconnectProgress,
+          registerButton, statusTextView, visitorDataLabel, visitorDataTextView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

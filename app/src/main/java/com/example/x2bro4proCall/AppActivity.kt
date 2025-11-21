@@ -48,6 +48,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var activeCallLayout: LinearLayout 
     private lateinit var callEndButton: Button 
     private lateinit var activeCallInfo: TextView
+    private lateinit var chatInput: EditText
+    private lateinit var chatSendButton: Button
+    private lateinit var chatMessagesView: TextView
     // NOTE: visitorDataTextView ist das alte Element, das wir hier nicht mehr explizit nutzen.
 
     // Daten und Clients
@@ -59,10 +62,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var visitorAdapter: VisitorAdapter
 
     private var activeCallSessionId: String? = null
-    // NOTE: Diese ID muss mit der ID im Web-Widget übereinstimmen!
-    private val BUSINESS_ID = "biz_rolex_muenchen_01"
+    // NOTE: Diese Domain-ID muss mit der ID im Backend übereinstimmen!
+    private val DOMAIN_ID = "tarba_schlusseldienst"  // Beispiel-Domain
     // Backend host (ohne scheme), aus Spezifikation
     private val BACKEND_HOST = "call-server.netdoc64.workers.dev"
+    
+    // Für dynamische CallRoom-IDs: DOMAIN_ID__SESSION_ID
+    private fun generateCallRoomId(sessionId: String): String {
+        return "${DOMAIN_ID}__${sessionId}"
+    }
     private lateinit var authClient: AuthClient
 
     // --- WebRTC Setup ---
@@ -108,6 +116,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         activeCallLayout = findViewById(R.id.active_call_layout)
         callEndButton = findViewById(R.id.call_end_button)
         activeCallInfo = findViewById(R.id.active_call_info)
+        chatInput = findViewById(R.id.chat_input)
+        chatSendButton = findViewById(R.id.chat_send_button)
+        chatMessagesView = findViewById(R.id.chat_messages_view)
 
         // Login/Register visible buttons
         loginButton.setOnClickListener { performLoginUI() }
@@ -120,6 +131,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         // 3. Event Listener
         callEndButton.setOnClickListener { endCall() }
+        chatSendButton.setOnClickListener { sendChatMessage() }
         connectButton.setOnClickListener {
             // Guard against using clients before initialization
             if (!::authClient.isInitialized) {
@@ -127,9 +139,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 performLoginUI()
                 return@setOnClickListener
             }
-            // manual reconnect / connect using known token/room
+            // manual reconnect / connect using known domain
             val token = currentToken ?: authClient.getToken()
-            val room = currentRoom ?: BUSINESS_ID
+            val room = currentRoom ?: DOMAIN_ID
             if (token != null) {
                 statusTextView.text = "Status: Manueller Verbindungsaufbau..."
                 signalingClient.connect(room, token)
@@ -211,11 +223,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // Auto-connect if token exists
         val savedToken = authClient.getToken()
         if (savedToken != null) {
-            val rooms = authClient.getRooms()
-            val room = rooms.firstOrNull() ?: BUSINESS_ID
-            currentRoom = room
+            val domains = authClient.getDomains()
+            val domain = domains.firstOrNull() ?: DOMAIN_ID
+            currentRoom = domain
             currentToken = savedToken
-            signalingClient.connect(room, savedToken)
+            signalingClient.connect(domain, savedToken)
         } else {
             // prompt login
             performLoginUI()
@@ -268,15 +280,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 }
                 statusTextView.text = "Status: Authentifiziere..."
                 authClient.login(email, pass, object : AuthClient.LoginCallback {
-                    override fun onSuccess(token: String, role: String?, rooms: List<String>) {
+                    override fun onSuccess(token: String, role: String?, domains: List<String>) {
                         runOnUiThread {
                             statusTextView.text = "Status: Auth erfolgreich"
                             // store token
                             currentToken = token
-                            // connect to first room or show selection
-                            if (rooms.isNotEmpty()) showRoomSelectionAndConnect(rooms, token) else {
-                                currentRoom = BUSINESS_ID
-                                signalingClient.connect(BUSINESS_ID, token)
+                            // connect to first domain or show selection
+                            if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
+                                currentRoom = DOMAIN_ID
+                                signalingClient.connect(DOMAIN_ID, token)
                             }
                         }
                     }
@@ -326,13 +338,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 }
                 statusTextView.text = "Status: Registriere..."
                 authClient.register(name, email, pass, object : AuthClient.RegisterCallback {
-                    override fun onSuccess(token: String, role: String?, rooms: List<String>) {
+                    override fun onSuccess(token: String, role: String?, domains: List<String>) {
                         runOnUiThread {
                             statusTextView.text = "Status: Registrierung erfolgreich"
                             currentToken = token
-                            if (rooms.isNotEmpty()) showRoomSelectionAndConnect(rooms, token) else {
-                                currentRoom = BUSINESS_ID
-                                signalingClient.connect(BUSINESS_ID, token)
+                            if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
+                                currentRoom = DOMAIN_ID
+                                signalingClient.connect(DOMAIN_ID, token)
                             }
                         }
                     }
@@ -350,17 +362,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .show()
     }
 
-    private fun showRoomSelectionAndConnect(rooms: List<String>, token: String) {
+    private fun showDomainSelectionAndConnect(domains: List<String>, token: String) {
         runOnUiThread {
-            val arr = rooms.toTypedArray()
+            val arr = domains.toTypedArray()
             AlertDialog.Builder(this)
-                .setTitle("Wähle Raum")
+                .setTitle("Wähle Domain")
                 .setItems(arr) { _, which ->
-                    val room = arr[which]
-                    statusTextView.text = "Status: Verbinde zu $room"
-                    currentRoom = room
+                    val domain = arr[which]
+                    statusTextView.text = "Status: Verbinde zu $domain"
+                    currentRoom = domain
                     currentToken = token
-                    signalingClient.connect(room, token)
+                    signalingClient.connect(domain, token)
                 }
                 .setCancelable(true)
                 .show()
@@ -384,7 +396,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // --- Signaling Listener Implementierung ---
 
     override fun onWebSocketOpen() {
-        runOnUiThread { statusTextView.text = "Status: Online und bereit (Raum: $BUSINESS_ID)" }
+        runOnUiThread { statusTextView.text = "Status: Online und bereit (Domain: $DOMAIN_ID)" }
     }
 
     override fun onReconnecting(attempt: Int, delayMs: Int) {
@@ -427,7 +439,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 "offer" -> handleIncomingOffer(message) 
                 "answer" -> webRtcClient.handleAnswer(message.getJSONObject("sdp"))
                 "candidate" -> webRtcClient.handleIceCandidate(message.getJSONObject("candidate"))
-                "chat" -> Toast.makeText(this, "Chat von: ${message.getString("text")}", Toast.LENGTH_SHORT).show()
+                "chat" -> handleChatMessage(message)
             }
         }
     }
@@ -468,7 +480,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     // --- Anruf Logik ---
-
+    
+    // Agent ruft Besucher proaktiv an
+    // Backend erstellt dynamische CallRoom: DOMAIN_ID__SESSION_ID
     fun generateOffer(visitor: Visitor) {
         activeCallSessionId = visitor.sessionId
         showActiveCallTab(visitor)
@@ -483,6 +497,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                         put("sdp", sdp.description)
                     })
                     put("targetSessionId", visitor.sessionId)
+                    // HINWEIS: Backend erstellt automatisch CallRoom mit ID: 
+                    // currentRoom (DOMAIN_ID) + "__" + visitor.sessionId
                 }
                 signalingClient.send(offer)
                 activeCallInfo.text = "Warte auf Annahme durch ${visitor.callerName}..."
@@ -493,6 +509,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         })
     }
     
+    // Besucher ruft Agent an (eingehender Anruf)
     private fun handleIncomingOffer(message: JSONObject) {
         val sdp = message.getJSONObject("sdp")
         statusTextView.text = "Status: Eingehender Anruf!"
@@ -500,6 +517,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val callerSessionId = message.optString("sessionId") 
         val caller = liveVisitors.find { it.sessionId == callerSessionId } ?: Visitor(callerSessionId, "N/A", "Web Visitor", null)
         
+        activeCallSessionId = callerSessionId
         showActiveCallTab(caller)
         
         val offerDesc = SessionDescription(
@@ -536,9 +554,42 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
     private fun endCall() {
         activeCallSessionId = null
+        chatMessagesView.text = ""  // Chat-Verlauf löschen
         showVisitorsTab()
         // WICHTIG: Signalisiere dem Worker, dass der Anruf beendet ist
         signalingClient.send(JSONObject().put("type", "hangup"))
+    }
+    
+    // --- Chat-Funktionen ---
+    
+    private fun sendChatMessage() {
+        val text = chatInput.text.toString().trim()
+        if (text.isEmpty() || activeCallSessionId == null) return
+        
+        val chatMsg = JSONObject().apply {
+            put("type", "chat")
+            put("text", text)
+            put("targetSessionId", activeCallSessionId)
+        }
+        signalingClient.send(chatMsg)
+        
+        // Eigene Nachricht im UI anzeigen
+        appendChatMessage("Agent", text)
+        chatInput.text.clear()
+    }
+    
+    private fun handleChatMessage(message: JSONObject) {
+        val sender = message.optString("senderRole", "Besucher")
+        val text = message.optString("text", "")
+        appendChatMessage(sender, text)
+    }
+    
+    private fun appendChatMessage(sender: String, text: String) {
+        val currentText = chatMessagesView.text.toString()
+        val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        val newMessage = "[$timestamp] $sender: $text\n"
+        chatMessagesView.text = currentText + newMessage
     }
     
     // --- Hilfsklassen ---

@@ -18,7 +18,7 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
     companion object {
         private const val PREF_FILE = "secure_prefs"
         private const val KEY_TOKEN = "jwt_token"
-        private const val KEY_ROOMS = "jwt_rooms"
+        private const val KEY_DOMAINS = "jwt_domains"
     }
 
     private fun createEncryptedPrefs(): SharedPreferences {
@@ -33,12 +33,12 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
     }
 
     interface LoginCallback {
-        fun onSuccess(token: String, role: String?, rooms: List<String>)
+        fun onSuccess(token: String, role: String?, domains: List<String>)
         fun onFailure(message: String)
     }
 
     interface RegisterCallback {
-        fun onSuccess(token: String, role: String?, rooms: List<String>)
+        fun onSuccess(token: String, role: String?, domains: List<String>)
         fun onFailure(message: String)
     }
 
@@ -68,17 +68,17 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
                         val json = JSONObject(text)
                         val token = json.optString("token", "")
                         val role = json.optString("role", null)
-                        val roomsJson = json.optJSONArray("rooms")
-                        val rooms = mutableListOf<String>()
-                        if (roomsJson != null) {
-                            for (i in 0 until roomsJson.length()) {
-                                rooms.add(roomsJson.optString(i))
+                        val domainsJson = json.optJSONArray("domains")
+                        val domains = mutableListOf<String>()
+                        if (domainsJson != null) {
+                            for (i in 0 until domainsJson.length()) {
+                                domains.add(domainsJson.optString(i))
                             }
                         }
                         if (token.isNotBlank()) {
                             saveToken(token)
-                            saveRooms(rooms)
-                            cb.onSuccess(token, role, rooms)
+                            saveDomains(domains)
+                            cb.onSuccess(token, role, domains)
                         } else {
                             // Some backends return success without token for register
                             cb.onFailure("Register succeeded but no token returned")
@@ -116,17 +116,17 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
                         val json = JSONObject(text)
                         val token = json.optString("token", "")
                         val role = json.optString("role", null)
-                        val roomsJson = json.optJSONArray("rooms")
-                        val rooms = mutableListOf<String>()
-                        if (roomsJson != null) {
-                            for (i in 0 until roomsJson.length()) {
-                                rooms.add(roomsJson.optString(i))
+                        val domainsJson = json.optJSONArray("domains")
+                        val domains = mutableListOf<String>()
+                        if (domainsJson != null) {
+                            for (i in 0 until domainsJson.length()) {
+                                domains.add(domainsJson.optString(i))
                             }
                         }
                         if (token.isNotBlank()) {
                             saveToken(token)
-                            saveRooms(rooms)
-                            cb.onSuccess(token, role, rooms)
+                            saveDomains(domains)
+                            cb.onSuccess(token, role, domains)
                         } else {
                             cb.onFailure("Login succeeded but no token returned")
                         }
@@ -142,22 +142,22 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
         prefs.edit().putString(KEY_TOKEN, token).apply()
     }
 
-    private fun saveRooms(rooms: List<String>) {
-        prefs.edit().putString(KEY_ROOMS, JSONObject().put("rooms", rooms).toString()).apply()
+    private fun saveDomains(domains: List<String>) {
+        prefs.edit().putString(KEY_DOMAINS, JSONObject().put("domains", domains).toString()).apply()
     }
 
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
 
-    fun getRooms(): List<String> {
-        val text = prefs.getString(KEY_ROOMS, null) ?: return emptyList()
+    fun getDomains(): List<String> {
+        val text = prefs.getString(KEY_DOMAINS, null) ?: return emptyList()
         return try {
             val json = JSONObject(text)
-            val arr = json.optJSONArray("rooms") ?: return emptyList()
+            val arr = json.optJSONArray("domains") ?: return emptyList()
             val out = mutableListOf<String>()
             for (i in 0 until arr.length()) out.add(arr.optString(i))
             out
         } catch (e: Exception) {
-            Log.e("AuthClient", "getRooms parse failed: ${e.message}")
+            Log.e("AuthClient", "getDomains parse failed: ${e.message}")
             emptyList()
         }
     }

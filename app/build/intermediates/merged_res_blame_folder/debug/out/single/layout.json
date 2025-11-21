@@ -1,10 +1,10 @@
 [
     {
-        "merged": "com.example.x2bro4proCall.app-mergeDebugResources-31:/layout/visitor_list_item_template.xml",
-        "source": "com.example.x2bro4proCall.app-main-34:/layout/visitor_list_item_template.xml"
+        "merged": "com.example.x2bro4proCall.app-mergeDebugResources-32:/layout/visitor_list_item_template.xml",
+        "source": "com.example.x2bro4proCall.app-main-35:/layout/visitor_list_item_template.xml"
     },
     {
-        "merged": "com.example.x2bro4proCall.app-mergeDebugResources-31:/layout/activity_app_layout.xml",
-        "source": "com.example.x2bro4proCall.app-main-34:/layout/activity_app_layout.xml"
+        "merged": "com.example.x2bro4proCall.app-mergeDebugResources-32:/layout/activity_app_layout.xml",
+        "source": "com.example.x2bro4proCall.app-main-35:/layout/activity_app_layout.xml"
     }
 ]
