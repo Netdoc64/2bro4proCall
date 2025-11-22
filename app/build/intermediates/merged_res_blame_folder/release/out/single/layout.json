@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "com.x2bro4pro.bro4call.app-mergeReleaseResources-40:/layout/activity_app_layout_glass.xml",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout_glass.xml"
+    },
+    {
+        "merged": "com.x2bro4pro.bro4call.app-mergeReleaseResources-40:/layout/visitor_list_item_glass.xml",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_glass.xml"
+    },
+    {
+        "merged": "com.x2bro4pro.bro4call.app-mergeReleaseResources-40:/layout/activity_app_layout.xml",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout.xml"
+    },
+    {
+        "merged": "com.x2bro4pro.bro4call.app-mergeReleaseResources-40:/layout/visitor_list_item_template.xml",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_template.xml"
+    }
+]
