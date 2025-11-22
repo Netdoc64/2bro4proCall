@@ -12,6 +12,7 @@ color text_secondary
 drawable app_logo
 drawable bg_space_gradient
 drawable card_panel
+drawable ic_launcher_background
 drawable ic_launcher_foreground
 id active_call_info
 id active_call_layout

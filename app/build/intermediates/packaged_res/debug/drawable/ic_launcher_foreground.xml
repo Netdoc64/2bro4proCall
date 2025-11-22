@@ -4,7 +4,30 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Dunkler Hintergrund für besseren Kontrast -->
     <path
-        android:fillColor="#3DDC84"
+        android:fillColor="#1A1A1A"
         android:pathData="M0,0h108v108h-108z" />
+    
+    <!-- Logo - zentriert und vergrößert für vollständige Abdeckung -->
+    <group
+        android:scaleX="1.5"
+        android:scaleY="1.5"
+        android:translateX="54"
+        android:translateY="54">
+        <!-- Hier sollte dein tatsächliches Logo sein -->
+        <!-- Platzhalter: Cyan-farbener Kreis -->
+        <path
+            android:fillColor="#00BCD4"
+            android:pathData="M0,0 
+                           a 24,24 0 1,0 48,0 
+                           a 24,24 0 1,0 -48,0 z"
+            android:translateX="-24"
+            android:translateY="-24" />
+        
+        <!-- Telefon-Icon im Zentrum -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-8,-12 l4,-4 c0.5,-0.5 1.3,-0.5 1.8,0 l3,3 c0.5,0.5 0.5,1.3 0,1.8 l-2,2 c2,4 5,7 9,9 l2,-2 c0.5,-0.5 1.3,-0.5 1.8,0 l3,3 c0.5,0.5 0.5,1.3 0,1.8 l-4,4 c-0.5,0.5-1.3,0.5-1.8,0 C3,14 -8,3 -8,-8 c0,-0.7 0.3,-1.3 0,-1.8 z" />
+    </group>
 </vector>
