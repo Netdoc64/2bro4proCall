@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "350019960442",
+    "project_id": "bro4call",
+    "storage_bucket": "bro4call.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:350019960442:android:ae2f51c5a3820d374105c3",
+        "android_client_info": {
+          "package_name": "com.x2bro4pro.bro4call"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXgPSvXOBVtTCXgMdU2iwujdpaH2Pvv7Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

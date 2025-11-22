@@ -50,7 +50,7 @@ MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] /home/c
 MERGED from [androidx.print:print:1.0.0] /home/codespace/.gradle/caches/transforms-4/3842f5577f11c1f299915c881fc17b3b/transformed/print-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.annotation:annotation-experimental:1.3.0] /home/codespace/.gradle/caches/transforms-4/51e91cd7bbd6d4a104633836004175df/transformed/jetified-annotation-experimental-1.3.0/AndroidManifest.xml:17:1-22:12
 	package
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:2:5-40
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:2:5-37
 		INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml
 	android:versionName
 		INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml
@@ -127,7 +127,7 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /home/codespace/.gradle/cac
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:20:9-35
 	android:theme
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:24:9-43
-activity#com.example.x2bro4proCall.AppActivity
+activity#com.x2bro4pro.bro4call.AppActivity
 ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:9-31:20
 	android:exported
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:47-70
@@ -143,7 +143,7 @@ category#android.intent.category.LAUNCHER
 ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:17-76
 	android:name
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:27-74
-service#com.example.x2bro4proCall.CallService
+service#com.x2bro4pro.bro4call.CallService
 ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:34:9-38:67
 	android:enabled
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:36:13-35
@@ -153,7 +153,7 @@ ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:34:9-38:67
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:38:13-65
 	android:name
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:35:13-40
-receiver#com.example.x2bro4proCall.BootReceiver
+receiver#com.x2bro4pro.bro4call.BootReceiver
 ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:41:9-48:20
 	android:enabled
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:43:13-35
@@ -293,7 +293,7 @@ ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
 	android:name
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:23:9-81
-permission#com.example.x2bro4proCall.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+permission#com.x2bro4pro.bro4call.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
 	android:protectionLevel
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
@@ -303,7 +303,7 @@ uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
-uses-permission#com.example.x2bro4proCall.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission#com.x2bro4pro.bro4call.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:26:22-94

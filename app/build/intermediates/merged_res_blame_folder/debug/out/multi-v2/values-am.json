@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.x2bro4proCall.app-mergeDebugResources-31:/values-am/values-am.xml",
+            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-31:/values-am/values-am.xml",
             "map": [
                 {
                     "source": "/home/codespace/.gradle/caches/transforms-4/ca3bd5becaa31f31232c674b4a5b2c3b/transformed/material-1.10.0/res/values-am/values-am.xml",

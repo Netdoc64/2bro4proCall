@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace "com.example.x2bro4proCall"
+    namespace "com.x2bro4pro.bro4call"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.x2bro4proCall"
+        applicationId "com.x2bro4pro.bro4call"
         minSdk 24
         targetSdk 34
         versionCode 1

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.x2bro4proCall"
+    package="com.x2bro4pro.bro4call"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -24,10 +24,10 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <permission
-        android:name="com.example.x2bro4proCall.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="com.x2bro4pro.bro4call.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="com.example.x2bro4proCall.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="com.x2bro4pro.bro4call.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
         android:allowBackup="true"
@@ -39,7 +39,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SciFi" >
         <activity
-            android:name="com.example.x2bro4proCall.AppActivity"
+            android:name="com.x2bro4pro.bro4call.AppActivity"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -50,14 +50,14 @@
 
         <!-- Foreground Service für eingehende Anrufe -->
         <service
-            android:name="com.example.x2bro4proCall.CallService"
+            android:name="com.x2bro4pro.bro4call.CallService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="phoneCall|microphone" />
 
         <!-- Boot Receiver für Auto-Start nach Neustart -->
         <receiver
-            android:name="com.example.x2bro4proCall.BootReceiver"
+            android:name="com.x2bro4pro.bro4call.BootReceiver"
             android:enabled="true"
             android:exported="true" >
             <intent-filter>
@@ -67,7 +67,7 @@
 
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.example.x2bro4proCall.androidx-startup"
+            android:authorities="com.x2bro4pro.bro4call.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"

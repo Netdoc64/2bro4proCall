@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.x2bro4proCall.app-mergeDebugResources-31:/values/values.xml",
+            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-31:/values/values.xml",
             "map": [
                 {
                     "source": "/home/codespace/.gradle/caches/transforms-4/68aad963f9b81ad3650972805fc4bf2b/transformed/recyclerview-1.3.1/res/values/values.xml",
