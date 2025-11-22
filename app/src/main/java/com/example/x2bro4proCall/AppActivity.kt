@@ -24,6 +24,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.os.PowerManager
+import android.provider.Settings
+import android.net.Uri
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -71,6 +74,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var chatInput: EditText
     private lateinit var chatSendButton: Button
     private lateinit var chatMessagesView: TextView
+    private lateinit var connectionQualityView: TextView
     // NOTE: visitorDataTextView ist das alte Element, das wir hier nicht mehr explizit nutzen.
 
     // Daten und Clients
@@ -181,6 +185,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         chatInput = findViewById(R.id.chat_input)
         chatSendButton = findViewById(R.id.chat_send_button)
         chatMessagesView = findViewById(R.id.chat_messages_view)
+        connectionQualityView = findViewById(R.id.connection_quality_view)
 
         // Login/Register visible buttons
         loginButton.setOnClickListener { performLoginUI() }
@@ -209,6 +214,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
         // If a crash log exists from previous run, show it to the user so they can copy/send it
         showCrashIfExists()
+        
+        // Check battery optimization on startup
+        checkBatteryOptimization()
     }
 
     private fun showCrashIfExists() {
@@ -295,6 +303,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             currentRoom = roomId
             currentToken = savedToken
             signalingClient.connect(roomId, savedToken)
+            
+            // Service starten bei Auto-Login
+            startCallService(roomId, savedToken)
         } else {
             // prompt login
             performLoginUI()
@@ -513,6 +524,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         runOnUiThread { 
             statusTextView.text = "Status: ✅ Verbunden"
             updateConnectionUI(isConnected = true)
+            connectionQualityView.visibility = View.VISIBLE
+            updateConnectionQuality("excellent")
         }
     }
 
@@ -850,6 +863,62 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             Log.d("AppActivity", "CallService stopped")
         } catch (e: Exception) {
             Log.e("AppActivity", "Failed to stop CallService", e)
+        }
+    }
+    
+    private fun checkBatteryOptimization() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val packageName = packageName
+            
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                AlertDialog.Builder(this)
+                    .setTitle("Batterie-Optimierung deaktivieren")
+                    .setMessage("Für zuverlässige Anrufbenachrichtigungen im Hintergrund muss die Batterie-Optimierung für diese App deaktiviert werden.\n\nOhne diese Einstellung können Sie möglicherweise keine Anrufe empfangen, wenn die App im Hintergrund läuft.")
+                    .setPositiveButton("Einstellungen öffnen") { _, _ ->
+                        try {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:$packageName")
+                            }
+                            startActivity(intent)
+                        } catch (e: Exception) {
+                            Log.e("AppActivity", "Failed to open battery settings", e)
+                            Toast.makeText(this, "Bitte deaktivieren Sie die Batterie-Optimierung manuell in den Einstellungen", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    .setNegativeButton("Später") { dialog, _ ->
+                        dialog.dismiss()
+                        Toast.makeText(this, "⚠️ Anrufempfang im Hintergrund möglicherweise eingeschränkt", Toast.LENGTH_LONG).show()
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
+        }
+    }
+    
+    private fun updateConnectionQuality(quality: String) {
+        runOnUiThread {
+            when (quality) {
+                "excellent" -> {
+                    connectionQualityView.text = "📶"
+                    connectionQualityView.setTextColor(resources.getColor(R.color.accent_green, null))
+                }
+                "good" -> {
+                    connectionQualityView.text = "📶"
+                    connectionQualityView.setTextColor(resources.getColor(R.color.neon_cyan, null))
+                }
+                "poor" -> {
+                    connectionQualityView.text = "📶"
+                    connectionQualityView.setTextColor(android.graphics.Color.parseColor("#FFA500"))
+                }
+                "bad" -> {
+                    connectionQualityView.text = "📶"
+                    connectionQualityView.setTextColor(android.graphics.Color.parseColor("#FF0000"))
+                }
+                else -> {
+                    connectionQualityView.visibility = View.GONE
+                }
+            }
         }
     }
     

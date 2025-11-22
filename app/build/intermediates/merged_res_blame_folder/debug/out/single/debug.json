@@ -36,10 +36,6 @@
         "source": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-main-35:/mipmap-xxhdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.example.x2bro4proCall.app-merged_res-33:/layout_visitor_list_item_template.xml.flat",
-        "source": "com.example.x2bro4proCall.app-main-35:/layout/visitor_list_item_template.xml"
-    },
-    {
         "merged": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-merged_res-33:/drawable_ic_launcher_foreground.xml.flat",
         "source": "/home/codespace/.gradle/daemon/8.6/com.example.x2bro4proCall.app-main-35:/drawable/ic_launcher_foreground.xml"
     },

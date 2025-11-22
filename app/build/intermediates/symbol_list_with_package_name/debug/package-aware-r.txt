@@ -3081,6 +3081,7 @@ id collapseActionView
 id compress
 id confirm_button
 id connect_button
+id connection_quality_view
 id container
 id content
 id contentPanel

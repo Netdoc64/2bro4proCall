@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-37:12
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-37:12
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-37:12
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-37:12
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-51:12
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-51:12
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-51:12
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-51:12
 MERGED from [androidx.databinding:viewbinding:8.1.1] /home/codespace/.gradle/caches/transforms-4/93f3c60fbf4fc093accd771fd37ce39a/transformed/jetified-viewbinding-8.1.1/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.android.material:material:1.10.0] /home/codespace/.gradle/caches/transforms-4/ca3bd5becaa31f31232c674b4a5b2c3b/transformed/material-1.10.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.appcompat:appcompat-resources:1.6.1] /home/codespace/.gradle/caches/transforms-4/427ca49d387116ffc893ae959640b44d/transformed/jetified-appcompat-resources-1.6.1/AndroidManifest.xml:17:1-22:12
@@ -86,9 +86,17 @@ uses-permission#android.permission.POST_NOTIFICATIONS
 ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:13:5-76
 	android:name
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:13:22-74
+uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:16:5-80
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:16:22-78
+uses-permission#android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:17:5-94
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:17:22-92
 application
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:15:5-35:19
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:15:5-35:19
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:19:5-49:19
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:19:5-49:19
 MERGED from [com.google.android.material:material:1.10.0] /home/codespace/.gradle/caches/transforms-4/ca3bd5becaa31f31232c674b4a5b2c3b/transformed/material-1.10.0/AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.10.0] /home/codespace/.gradle/caches/transforms-4/ca3bd5becaa31f31232c674b4a5b2c3b/transformed/material-1.10.0/AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] /home/codespace/.gradle/caches/transforms-4/a1df26b237ff8dae76b238b7aa8afdd3/transformed/constraintlayout-2.0.1/AndroidManifest.xml:9:5-20
@@ -110,41 +118,55 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /home/codespace/.gradle/cac
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:19:9-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:23:9-35
 	android:label
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:18:9-34
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:22:9-34
 	android:icon
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:17:9-43
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:21:9-43
 	android:allowBackup
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:16:9-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:20:9-35
 	android:theme
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:20:9-43
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:24:9-43
 activity#com.example.x2bro4proCall.AppActivity
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:22:9-27:20
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:9-31:20
 	android:exported
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:22:47-70
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:47-70
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:22:19-46
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:19-46
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:23:13-26:29
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:27:13-30:29
 action#android.intent.action.MAIN
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:24:17-68
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:28:17-68
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:24:25-66
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:28:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:25:17-76
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:17-76
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:25:27-74
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:27-74
 service#com.example.x2bro4proCall.CallService
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:30:9-34:67
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:34:9-38:67
 	android:enabled
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:32:13-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:36:13-35
 	android:exported
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:33:13-37
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:37:13-37
 	android:foregroundServiceType
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:34:13-65
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:38:13-65
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:31:13-40
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:35:13-40
+receiver#com.example.x2bro4proCall.BootReceiver
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:41:9-48:20
+	android:enabled
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:43:13-35
+	android:exported
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:44:13-36
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:42:13-41
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:45:13-47:29
+action#android.intent.action.BOOT_COMPLETED
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:46:17-78
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:46:25-76
 uses-sdk
 INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml

@@ -49,6 +49,9 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final MaterialButton connectButton;
 
   @NonNull
+  public final TextView connectionQualityView;
+
+  @NonNull
   public final RecyclerView liveVisitorsRecycler;
 
   @NonNull
@@ -76,11 +79,11 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       @NonNull MaterialCardView activeCallLayout, @NonNull MaterialButton adminButton,
       @NonNull MaterialButton callEndButton, @NonNull TextInputEditText chatInput,
       @NonNull TextView chatMessagesView, @NonNull MaterialButton chatSendButton,
-      @NonNull MaterialButton connectButton, @NonNull RecyclerView liveVisitorsRecycler,
-      @NonNull MaterialButton loginButton, @NonNull ProgressBar reconnectProgress,
-      @NonNull MaterialButton registerButton, @NonNull TextView statusTextView,
-      @NonNull MaterialButton supervisorButton, @NonNull TextView visitorDataLabel,
-      @NonNull TextView visitorDataTextView) {
+      @NonNull MaterialButton connectButton, @NonNull TextView connectionQualityView,
+      @NonNull RecyclerView liveVisitorsRecycler, @NonNull MaterialButton loginButton,
+      @NonNull ProgressBar reconnectProgress, @NonNull MaterialButton registerButton,
+      @NonNull TextView statusTextView, @NonNull MaterialButton supervisorButton,
+      @NonNull TextView visitorDataLabel, @NonNull TextView visitorDataTextView) {
     this.rootView = rootView;
     this.activeCallInfo = activeCallInfo;
     this.activeCallLayout = activeCallLayout;
@@ -90,6 +93,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
     this.chatMessagesView = chatMessagesView;
     this.chatSendButton = chatSendButton;
     this.connectButton = connectButton;
+    this.connectionQualityView = connectionQualityView;
     this.liveVisitorsRecycler = liveVisitorsRecycler;
     this.loginButton = loginButton;
     this.reconnectProgress = reconnectProgress;
@@ -175,6 +179,12 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.connection_quality_view;
+      TextView connectionQualityView = ViewBindings.findChildViewById(rootView, id);
+      if (connectionQualityView == null) {
+        break missingId;
+      }
+
       id = R.id.live_visitors_recycler;
       RecyclerView liveVisitorsRecycler = ViewBindings.findChildViewById(rootView, id);
       if (liveVisitorsRecycler == null) {
@@ -225,8 +235,8 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
 
       return new ActivityAppLayoutBinding((LinearLayout) rootView, activeCallInfo, activeCallLayout,
           adminButton, callEndButton, chatInput, chatMessagesView, chatSendButton, connectButton,
-          liveVisitorsRecycler, loginButton, reconnectProgress, registerButton, statusTextView,
-          supervisorButton, visitorDataLabel, visitorDataTextView);
+          connectionQualityView, liveVisitorsRecycler, loginButton, reconnectProgress,
+          registerButton, statusTextView, supervisorButton, visitorDataLabel, visitorDataTextView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));
