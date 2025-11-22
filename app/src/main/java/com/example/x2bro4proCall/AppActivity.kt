@@ -19,6 +19,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -94,6 +99,39 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         return "${domainId}__${sessionId}"
     }
     private lateinit var authClient: AuthClient
+    
+    // CallService Integration
+    private var callService: CallService? = null
+    private var isServiceBound = false
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            val serviceBinder = binder as CallService.CallServiceBinder
+            callService = serviceBinder.getService()
+            isServiceBound = true
+            
+            // Setup callbacks
+            callService?.onCallReceived = { sessionId, domain ->
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Eingehender Anruf von $domain", Toast.LENGTH_LONG).show()
+                    // Visitor zur Liste hinzufügen wenn noch nicht vorhanden
+                }
+            }
+            
+            callService?.onConnectionStateChanged = { connected ->
+                runOnUiThread {
+                    updateConnectionUI(connected)
+                }
+            }
+            
+            Log.d("AppActivity", "CallService bound")
+        }
+        
+        override fun onServiceDisconnected(name: ComponentName?) {
+            callService = null
+            isServiceBound = false
+            Log.d("AppActivity", "CallService unbound")
+        }
+    }
 
     // --- WebRTC Setup ---
     private fun initializeWebRTC() {
@@ -201,6 +239,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
     // Request code for audio permission
     private val REQ_RECORD_AUDIO = 1001
+    private val REQ_POST_NOTIFICATIONS = 1002
 
     private fun ensureAudioPermissionThenInit() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -217,11 +256,26 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         if (requestCode == REQ_RECORD_AUDIO) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Audio permission granted", Toast.LENGTH_SHORT).show()
+                requestNotificationPermission()
                 startClientsAndAutoConnect()
             } else {
                 Toast.makeText(this, "Audio permission is required for calls", Toast.LENGTH_LONG).show()
                 // Disable call/connect UI to prevent errors
                 findViewById<Button>(R.id.connect_button).isEnabled = false
+            }
+        } else if (requestCode == REQ_POST_NOTIFICATIONS) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Benachrichtigungen aktiviert", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Benachrichtigungen deaktiviert. Sie werden keine Anruf-Benachrichtigungen erhalten.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    private fun requestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_POST_NOTIFICATIONS)
             }
         }
     }
@@ -264,6 +318,10 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (isServiceBound) {
+            unbindService(serviceConnection)
+            isServiceBound = false
+        }
         signalingClient.disconnect()
         webRtcClient.close()
     }
@@ -309,6 +367,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                                 currentRoom = roomId
                                 signalingClient.connect(roomId, token)
                             }
+                            
+                            // CallService starten für Hintergrund-Anrufe
+                            startCallService(currentRoom ?: generateCallRoomId(DOMAIN_ID), token)
                         }
                     }
 
@@ -717,6 +778,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setTitle("Logout")
             .setMessage("Möchten Sie sich wirklich abmelden?")
             .setPositiveButton("Ja") { _, _ ->
+                // CallService stoppen
+                stopCallService()
+                
                 signalingClient.disconnect()
                 authClient.clearToken()
                 currentToken = null
@@ -743,6 +807,49 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 connectButton.isEnabled = true
                 connectButton.setOnClickListener { performManualReconnect() }
             }
+        }
+    }
+    
+    private fun startCallService(roomId: String, token: String) {
+        try {
+            val serviceIntent = Intent(this, CallService::class.java).apply {
+                action = CallService.ACTION_START_SERVICE
+                putExtra(CallService.EXTRA_ROOM_ID, roomId)
+                putExtra(CallService.EXTRA_TOKEN, token)
+            }
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+            
+            // Service binden für Kommunikation
+            bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+            
+            Log.d("AppActivity", "CallService started")
+            Toast.makeText(this, "✅ Anruf-Service aktiv", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("AppActivity", "Failed to start CallService", e)
+            Toast.makeText(this, "Fehler beim Starten des Services: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun stopCallService() {
+        try {
+            if (isServiceBound) {
+                unbindService(serviceConnection)
+                isServiceBound = false
+            }
+            
+            val serviceIntent = Intent(this, CallService::class.java).apply {
+                action = CallService.ACTION_STOP_SERVICE
+            }
+            startService(serviceIntent)
+            
+            Log.d("AppActivity", "CallService stopped")
+        } catch (e: Exception) {
+            Log.e("AppActivity", "Failed to stop CallService", e)
         }
     }
     
