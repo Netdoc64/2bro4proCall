@@ -20,6 +20,7 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
         private const val KEY_TOKEN = "jwt_token"
         private const val KEY_ROLE = "jwt_role"
         private const val KEY_DOMAINS = "jwt_domains"
+        private const val KEY_ROOM_ID = "active_room_id"
     }
 
     private fun createEncryptedPrefs(): SharedPreferences {
@@ -256,5 +257,13 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
                 }
             }
         })
+    }
+    
+    fun saveRoomId(roomId: String) {
+        prefs.edit().putString(KEY_ROOM_ID, roomId).apply()
+    }
+    
+    fun getRoomId(): String? {
+        return prefs.getString(KEY_ROOM_ID, null)
     }
 }

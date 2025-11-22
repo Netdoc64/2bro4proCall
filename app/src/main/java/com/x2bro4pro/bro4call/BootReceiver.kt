@@ -26,12 +26,17 @@ class BootReceiver : BroadcastReceiver() {
                 val savedToken = authClient.getToken()
                 
                 if (savedToken != null) {
-                    val domains = authClient.getDomains()
-                    val domain = domains.firstOrNull() ?: "tarba_schlusseldienst"
+                    // Try to load saved room ID first to maintain context
+                    var roomId = authClient.getRoomId()
                     
-                    // Generate room ID (same format as in AppActivity)
-                    val sessionId = java.util.UUID.randomUUID().toString()
-                    val roomId = "${domain}__${sessionId}"
+                    if (roomId == null) {
+                        // Fallback: generate new room ID if none exists
+                        val domains = authClient.getDomains()
+                        val domain = domains.firstOrNull() ?: "tarba_schlusseldienst"
+                        val sessionId = java.util.UUID.randomUUID().toString()
+                        roomId = "${domain}__${sessionId}"
+                        authClient.saveRoomId(roomId)
+                    }
                     
                     // Start CallService
                     val serviceIntent = Intent(context, CallService::class.java).apply {
@@ -46,7 +51,7 @@ class BootReceiver : BroadcastReceiver() {
                         context.startService(serviceIntent)
                     }
                     
-                    Log.d(TAG, "CallService started after boot for domain: $domain")
+                    Log.d(TAG, "CallService started after boot with room: $roomId")
                 } else {
                     Log.d(TAG, "No saved credentials, skipping service start")
                 }

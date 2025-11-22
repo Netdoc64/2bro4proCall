@@ -169,7 +169,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
-        setContentView(R.layout.activity_app_layout) 
+        setContentView(R.layout.activity_app_layout_glass) 
         
         // 1. UI-Referenzen initialisieren (Muss mit XML IDs übereinstimmen)
         statusTextView = findViewById(R.id.status_text_view)
@@ -1474,9 +1474,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VisitorViewHolder {
-            // NOTE: Für die Kompilierung ohne Android Studio ist dies die beste Lösung. 
-            // In einem realen Projekt würde man hier ein visitor_list_item.xml laden.
-            val itemLayout = LayoutInflater.from(parent.context).inflate(R.layout.visitor_list_item_template, parent, false)
+            val itemLayout = LayoutInflater.from(parent.context).inflate(R.layout.visitor_list_item_glass, parent, false)
             return VisitorViewHolder(itemLayout)
         }
 

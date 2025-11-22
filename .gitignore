@@ -1,2 +1,4 @@
 # Ignore Gradle build cache
+.gradle/app/build/
+build.log
 .gradle/

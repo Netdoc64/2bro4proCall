@@ -8,24 +8,22 @@
     android:background="@drawable/bg_space_gradient"
     android:padding="16dp">
 
-    <!-- 1. OBERER BEREICH: STATUS & CONNECT -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="@color/panel_dark"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
+        app:cardBackgroundColor="#40FFFFFF"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="12dp"
         android:layout_marginBottom="16dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="#40FFFFFF">
+        app:strokeWidth="2dp"
+        app:strokeColor="#80FFFFFF">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
-
-            <LinearLayout
+            android:padding="16dp"
+            android:background="@android:color/transparent"> <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -47,7 +45,7 @@
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:fontFamily="sans-serif-medium" />
-                
+
                 <TextView
                     android:id="@+id/connection_quality_view"
                     android:layout_width="wrap_content"
@@ -74,8 +72,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="🔄 Manueller Reconnect"
-                app:backgroundTint="@color/accent_green"
-                android:textColor="@color/text_primary"
+                app:backgroundTint="#80ACCBFF"
+                android:textColor="@color/space_background_start"
                 android:padding="14dp"
                 android:layout_marginTop="12dp"
                 app:cornerRadius="12dp"
@@ -126,8 +124,7 @@
             app:iconGravity="textStart" />
 
     </LinearLayout>
-    
-    <!-- Admin/Supervisor Buttons (standardmäßig versteckt) -->
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -141,7 +138,7 @@
             android:layout_height="56dp"
             android:layout_weight="1"
             android:text="🔧 Admin Panel"
-            app:backgroundTint="#FF9800"
+            app:backgroundTint="#99FF9800"
             android:textColor="#FFFFFF"
             android:layout_marginEnd="8dp"
             app:cornerRadius="14dp"
@@ -158,7 +155,7 @@
             android:layout_height="56dp"
             android:layout_weight="1"
             android:text="👁️ Supervisor"
-            app:backgroundTint="#9C27B0"
+            app:backgroundTint="#999C27B0"
             android:textColor="@color/text_primary"
             android:layout_marginStart="8dp"
             app:cornerRadius="14dp"
@@ -171,24 +168,21 @@
 
     </LinearLayout>
 
-    <!-- 2. TAB: LIVE BESUCHER LISTE (Sichtbar wenn kein Anruf) -->
-    <!-- Dieser Bereich wird standardmäßig angezeigt -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        app:cardBackgroundColor="@color/panel_dark"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="#30FFFFFF">
+        app:cardBackgroundColor="#40FFFFFF"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="12dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="#80FFFFFF">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
-
-            <LinearLayout
+            android:orientation="vertical"
+            android:background="@android:color/transparent"> <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -226,7 +220,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
                 android:background="@color/neon_cyan"
-                android:alpha="0.3"/>
+                android:alpha="0.5"/>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/live_visitors_recycler"
@@ -242,16 +236,14 @@
     </com.google.android.material.card.MaterialCardView>
 
 
-    <!-- 3. TAB: AKTIVER ANRUF (Sichtbar während Anruf) -->
-    <!-- Dieser Bereich ist standardmäßig ausgeblendet (visibility="gone") -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/active_call_layout"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        app:cardBackgroundColor="#1A1A1A"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
+        app:cardBackgroundColor="#40FFFFFF"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="12dp"
         android:visibility="gone"
         app:strokeWidth="2dp"
         app:strokeColor="#FF9800"
@@ -261,14 +253,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:padding="16dp">
-
-            <!-- Header -->
-            <LinearLayout
+            android:padding="16dp"
+            android:background="@android:color/transparent"> <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="#2E2E2E"
+                android:background="#40000000"
                 android:padding="20dp"
                 android:gravity="center">
 
@@ -293,16 +283,17 @@
 
             </LinearLayout>
 
-            <!-- Visualizer Platzhalter -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="180dp"
                 android:layout_height="180dp"
                 android:layout_gravity="center"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="#2E2E2E"
+                app:cardBackgroundColor="#40000000"
                 app:cardCornerRadius="90dp"
-                app:cardElevation="4dp">
+                app:cardElevation="4dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#FFFFFF">
 
                 <ImageView
                     android:layout_width="match_parent"
@@ -314,16 +305,15 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Chat-Bereich -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                app:cardBackgroundColor="#2E2E2E"
-                app:cardCornerRadius="12dp"
+                app:cardBackgroundColor="#40000000"
+                app:cardCornerRadius="14dp"
                 app:cardElevation="4dp"
                 app:strokeWidth="1dp"
-                app:strokeColor="#40FFFFFF">
+                app:strokeColor="#80FFFFFF">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -333,7 +323,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="#3A3A3A"
+                        android:background="#40FFFFFF"
                         android:padding="12dp"
                         android:gravity="center_vertical">
 
@@ -359,7 +349,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
                         android:layout_weight="1"
-                        android:background="#1A1A1A"
+                        android:background="@android:color/transparent"
                         android:padding="12dp">
 
                         <TextView
@@ -379,7 +369,7 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:padding="12dp"
-                        android:background="#2E2E2E"
+                        android:background="#40000000"
                         android:gravity="center_vertical">
 
                         <com.google.android.material.textfield.TextInputEditText
@@ -389,8 +379,8 @@
                             android:layout_weight="1"
                             android:hint="Nachricht eingeben..."
                             android:textColor="#FFFFFF"
-                            android:textColorHint="#999999"
-                            android:background="#3A3A3A"
+                            android:textColorHint="#CCCCCC"
+                            android:background="#50FFFFFF"
                             android:padding="14dp"
                             android:inputType="text"
                             android:imeOptions="actionSend"
@@ -434,7 +424,6 @@
 
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- 4. LEGACY ID (Versteckt) -->
     <TextView
         android:id="@+id/visitor_data_text_view"
         android:layout_width="match_parent"

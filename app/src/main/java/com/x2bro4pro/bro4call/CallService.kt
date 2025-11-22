@@ -62,8 +62,20 @@ class CallService : Service(), SignalingListener {
                 if (roomId != null && token != null) {
                     currentRoomId = roomId
                     currentToken = token
-                    startForegroundService()
-                    connectWebSocket(roomId, token)
+                    
+                    // Nur starten wenn noch nicht läuft
+                    if (!isConnected) {
+                        startForegroundService()
+                        connectWebSocket(roomId, token)
+                    } else {
+                        Log.d(TAG, "Service already running and connected")
+                        // Update mit neuen Credentials falls nötig
+                        if (currentRoomId != roomId || currentToken != token) {
+                            Log.d(TAG, "Credentials changed, reconnecting...")
+                            disconnectWebSocket()
+                            connectWebSocket(roomId, token)
+                        }
+                    }
                 } else {
                     Log.e(TAG, "Missing room_id or token")
                     stopSelf()
@@ -87,6 +99,26 @@ class CallService : Service(), SignalingListener {
         disconnectWebSocket()
         releaseWakeLock()
         super.onDestroy()
+    }
+    
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "Task removed (app swiped away), restarting service...")
+        
+        // Restart service wenn App aus Recent Apps entfernt wurde
+        if (currentRoomId != null && currentToken != null) {
+            val restartIntent = Intent(applicationContext, CallService::class.java).apply {
+                action = ACTION_START_SERVICE
+                putExtra(EXTRA_ROOM_ID, currentRoomId)
+                putExtra(EXTRA_TOKEN, currentToken)
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                applicationContext.startForegroundService(restartIntent)
+            } else {
+                applicationContext.startService(restartIntent)
+            }
+        }
     }
     
     private fun startForegroundService() {
@@ -220,9 +252,9 @@ class CallService : Service(), SignalingListener {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "2bro4Call::CallService"
             ).apply {
-                acquire(10 * 60 * 1000L) // 10 Minuten, wird automatisch verlängert
+                acquire() // Unbegrenzt - wird nur bei stopSelf() released
             }
-            Log.d(TAG, "Wake lock acquired")
+            Log.d(TAG, "Wake lock acquired (indefinite)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to acquire wake lock", e)
         }

@@ -23,6 +23,9 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     private var reconnecting = false
     private val MAX_RECONNECT_ATTEMPTS = 8
     private val JITTER_PERCENT = 0.2 // +/- 20%
+    private val PING_INTERVAL_MS = 30000L // 30 seconds
+    private var pingThread: Thread? = null
+    private var keepAlive = false
 
     // store last connection params so reconnect can retry automatically
     @Volatile
@@ -60,6 +63,9 @@ class SignalingClient(private val listener: SignalingListener, private val backe
                 // reset backoff
                 reconnectAttempts = 0
                 reconnecting = false
+                
+                // Start heartbeat/ping thread
+                startHeartbeat()
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -99,6 +105,7 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     fun disconnect() {
         // mark as user requested to avoid reconnect attempts
         userInitiatedDisconnect = true
+        stopHeartbeat()
         try {
             webSocket?.close(1000, "App disconnected")
         } finally {
@@ -107,6 +114,39 @@ class SignalingClient(private val listener: SignalingListener, private val backe
             lastRoomId = null
             lastToken = null
         }
+    }
+    
+    private fun startHeartbeat() {
+        stopHeartbeat()
+        keepAlive = true
+        pingThread = Thread {
+            while (keepAlive) {
+                try {
+                    Thread.sleep(PING_INTERVAL_MS)
+                    if (keepAlive && webSocket != null) {
+                        val ping = JSONObject().apply {
+                            put("type", "ping")
+                            put("timestamp", System.currentTimeMillis())
+                        }
+                        send(ping)
+                        Log.d("SignalingClient", "Sent heartbeat ping")
+                    }
+                } catch (e: InterruptedException) {
+                    break
+                } catch (e: Exception) {
+                    Log.e("SignalingClient", "Heartbeat error: ${e.message}")
+                }
+            }
+        }.apply {
+            name = "WebSocket-Heartbeat"
+            start()
+        }
+    }
+    
+    private fun stopHeartbeat() {
+        keepAlive = false
+        pingThread?.interrupt()
+        pingThread = null
     }
 
     private fun sendIdentifyPacket() {
@@ -141,8 +181,28 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         }
 
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            Log.d("SignalingClient", "Max reconnect attempts reached: $reconnectAttempts")
-            listener.onReconnectFailed()
+            Log.d("SignalingClient", "Max reconnect attempts reached: $reconnectAttempts, will retry with longer delay")
+            // Statt aufzugeben, längere Pause und dann weiter versuchen
+            reconnectAttempts = MAX_RECONNECT_ATTEMPTS - 2 // Reset zu mittlerem Backoff
+            listener.onReconnecting(reconnectAttempts, 120000) // 2 Minuten
+            
+            Thread {
+                try {
+                    Thread.sleep(120000) // 2 Minuten warten
+                } catch (e: InterruptedException) {
+                }
+                val room = lastRoomId
+                val token = lastToken
+                if (!userInitiatedDisconnect && room != null && token != null) {
+                    try {
+                        Log.d("SignalingClient", "Attempting long-delay reconnect to $room")
+                        connect(room, token)
+                    } catch (e: Exception) {
+                        Log.e("SignalingClient", "Long-delay reconnect failed: ${e.message}")
+                    }
+                }
+                reconnecting = false
+            }.start()
             return
         }
         reconnecting = true

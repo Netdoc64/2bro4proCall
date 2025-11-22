@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Deep gradient background -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="@color/glass_background_start"
+                android:centerColor="#141937"
+                android:endColor="@color/glass_background_end" />
+        </shape>
+    </item>
+    
+    <!-- Accent gradient overlay -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:centerX="0.2"
+                android:centerY="0.2"
+                android:gradientRadius="600"
+                android:startColor="#266366F1"
+                android:endColor="#00000000" />
+        </shape>
+    </item>
+    
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:centerX="0.8"
+                android:centerY="0.7"
+                android:gradientRadius="500"
+                android:startColor="#26EC4899"
+                android:endColor="#00000000" />
+        </shape>
+    </item>
+    
+    <!-- Subtle noise texture simulation -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#03FFFFFF" />
+        </shape>
+    </item>
+</layer-list>
