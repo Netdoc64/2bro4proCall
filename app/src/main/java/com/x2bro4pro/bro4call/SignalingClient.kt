@@ -30,6 +30,7 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     
     private var webSocket: WebSocket? = null
     private var reconnectAttempts = 0
+    @Volatile
     private var reconnecting = false
     private val MAX_RECONNECT_ATTEMPTS = 8
     private val JITTER_PERCENT = 0.2 // +/- 20%
@@ -134,6 +135,10 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         // mark as user requested to avoid reconnect attempts
         userInitiatedDisconnect = true
         stopHeartbeat()
+        
+        // Cleanup all Handler callbacks to prevent memory leaks
+        pingHandler.removeCallbacksAndMessages(null)
+        reconnectHandler.removeCallbacksAndMessages(null)
         
         try {
             webSocket?.close(1000, "App disconnected")

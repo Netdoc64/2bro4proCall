@@ -1,59 +1,73 @@
 # 2bro4Call - AI Coding Agent Instructions
 
 ## Project Overview
-**2bro4Call** is an Android VoIP application that enables real-time WebRTC audio calls between website visitors and agents. Built with Kotlin, it integrates WebSocket signaling, Firebase Cloud Messaging, and foreground services for persistent call handling.
+**2bro4Call** is an Android VoIP app enabling real-time WebRTC audio calls between website visitors and agents. Built with Kotlin, it integrates WebSocket signaling, Firebase Cloud Messaging, and foreground services for persistent call handling.
 
 **Package:** `com.x2bro4pro.bro4call`  
-**Backend:** `call-server.netdoc64.workers.dev` (Cloudflare Workers)
+**Backend:** `call-server.netdoc64.workers.dev` (Cloudflare Workers)  
+**Min SDK:** 24 | **Target SDK:** 34 | **Gradle:** 8.1.1 | **AGP:** 8.1.1 | **Kotlin:** 1.9.0
 
-## Architecture
+## Architecture & Data Flow
 
-### Core Components
-1. **AppActivity** (`AppActivity.kt`) - Main UI controller, implements `SignalingListener`
-   - Manages visitor list (RecyclerView with `VisitorAdapter`)
-   - Handles authentication via `AuthClient`
-   - Controls WebRTC peer connections via embedded `PeerConnectionClient` class
-   - Binds to `CallService` for background call handling
+### Core Component Interactions
+```
+Web Visitor → Backend WebSocket → CallService (foreground) → Notification
+                                         ↓                        ↓
+                                   SignalingClient         (User taps)
+                                         ↓                        ↓
+                                   AppActivity ← Service Binding →
+                                         ↓
+                                 PeerConnectionClient (WebRTC)
+```
 
-2. **CallService** (`CallService.kt`) - Foreground service for persistent connectivity
-   - Maintains WebSocket connection via `SignalingClient`
-   - Shows notifications for incoming calls (FOREGROUND_SERVICE_TYPE_MICROPHONE)
-   - Implements `SignalingListener` for real-time signaling
-   - Uses WakeLock to prevent connection drops
+### Key Components
+1. **AppActivity** (1734 lines) - Main UI controller implementing `SignalingListener`
+   - Contains **embedded inner classes** `VisitorAdapter` (line 1575) and `PeerConnectionClient` (line 1603)
+   - Binds to `CallService` via `ServiceConnection` pattern
+   - Manages visitor RecyclerView and WebRTC peer connections
+   - Sets global crash handler writing to `filesDir/last_crash.log`
 
-3. **SignalingClient** (`SignalingClient.kt`) - WebSocket manager
-   - Connects to `wss://call-server.netdoc64.workers.dev/call/{roomId}?token={token}&mode={mode}`
-   - Implements exponential backoff reconnection (max 8 attempts, 20% jitter)
+2. **CallService** - Foreground service (`FOREGROUND_SERVICE_TYPE_MICROPHONE`)
+   - Maintains persistent WebSocket connection via `SignalingClient`
+   - Uses `WakeLock` to prevent connection drops
+   - Auto-restarts on task removal (`onTaskRemoved()`) with 3s delay
+   - Returns `START_STICKY` to survive crashes
+
+3. **SignalingClient** - WebSocket manager with intelligent reconnection
+   - URL format: `wss://{HOST}/call/{roomId}?token={token}&mode={mode}`
    - Modes: `talk` (agent), `listen` (supervisor monitoring)
+   - **Exponential backoff:** Resets to mid-backoff at max attempts instead of giving up
+   - **Heartbeat:** Sends `{"type":"ping"}` every 30s to keep connection alive
+   - Validates `lastRoomId` and `lastToken` before reconnect attempts
 
-4. **AuthClient** (`AuthClient.kt`) - Authentication & secure storage
-   - REST API client for login/register (`/api/login`, `/api/register`)
-   - Uses `EncryptedSharedPreferences` for JWT token storage
-   - Manages role-based access (agent, admin, supervisor)
+4. **AuthClient** - REST authentication using `EncryptedSharedPreferences`
+   - Endpoints: `/api/login`, `/api/register`
+   - Storage keys: `jwt_token`, `jwt_role`, `jwt_domains`, `active_room_id`
+   - Uses `MasterKeys.AES256_GCM_SPEC` for credential encryption
+   - Max 3 retries with `retryOnConnectionFailure=true`
 
-5. **MyFirebaseMessagingService** - Push notifications when app is closed
-   - Handles `incoming_call` and `call_ended` FCM messages
-   - Starts `CallService` on incoming calls
+5. **BootReceiver** - Auto-starts `CallService` after device reboot
+   - Only starts if valid JWT token exists
+   - Loads or generates room ID from `AuthClient.getRoomId()`
+   - Handles `IllegalStateException` for service start failures
 
-### Data Flow
-```
-Web Visitor → Backend WebSocket → CallService (background) → Notification
-                                                          ↓
-                                                  AppActivity (UI updates)
-                                                          ↓
-                                               WebRTC PeerConnection
-```
+6. **NetworkChangeReceiver** - Triggers reconnection on network change (WiFi ↔ Mobile)
 
 ## Critical Developer Conventions
 
-### Room ID Pattern
-- **Format:** `{DOMAIN_ID}__{SESSION_ID}` (double underscore separator)
-- Example: `tarba_schlusseldienst__uuid`
-- Domain ID must match backend configuration
-- Generated in `AppActivity.generateCallRoomId()`
+### Room ID Pattern (STRICT)
+```kotlin
+// Format: {DOMAIN_ID}__{SESSION_ID} (double underscore is separator)
+fun generateCallRoomId(domainId: String = "tarba_schlusseldienst"): String {
+    val sessionId = java.util.UUID.randomUUID().toString()
+    return "${domainId}__${sessionId}"  // tarba_schlusseldienst__uuid
+}
+```
+- Must match backend domain configuration
+- Backend parses on `__` to extract domain and session
 
-### SignalingListener Interface
-All components that interact with WebSocket must implement:
+### SignalingListener Contract
+All WebSocket components must implement:
 ```kotlin
 interface SignalingListener {
     fun onWebSocketOpen()
@@ -65,83 +79,151 @@ interface SignalingListener {
 }
 ```
 
-### WebRTC Configuration
-- **STUN Server:** `stun:stun.l.google.com:19302`
-- **WebRTC Library:** `com.dafruits:webrtc:113.0.0` (Maven Central - avoid others)
-- **Packaging:** Resolves native library conflicts via `pickFirst` in `app/build.gradle`
+### Backend Host Configuration (CRITICAL)
+```kotlin
+// SignalingClient: domain ONLY (adds wss:// and path)
+SignalingClient(listener, "call-server.netdoc64.workers.dev")
+
+// AuthClient: FULL URL (makes direct HTTP requests)
+AuthClient(context, "https://call-server.netdoc64.workers.dev")
+```
+Mixing these causes connection failures.
+
+### WebRTC Library Selection
+**Only use:** `com.dafruits:webrtc:113.0.0` (Maven Central)
+- Other WebRTC artifacts cause "Not Found" errors or ABI conflicts
+- Requires `pickFirst` packaging for `libc++_shared.so` (see `app/build.gradle:52-57`)
 
 ### Service Binding Pattern
 ```kotlin
-// AppActivity always binds to CallService:
 private val serviceConnection = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
         val serviceBinder = binder as CallService.CallServiceBinder
         callService = serviceBinder.getService()
-        // Setup callbacks: onCallReceived, onConnectionStateChanged
+        // Register callbacks for bidirectional communication
+        callService?.onCallReceived = { sessionId, domain -> /* ... */ }
+        callService?.onConnectionStateChanged = { connected -> /* ... */ }
+    }
+    override fun onServiceDisconnected(name: ComponentName?) {
+        callService = null
+        isServiceBound = false
     }
 }
 ```
 
-### Theme & UI Style
-- **Theme:** `Theme.SciFi` (dark sci-fi aesthetic)
-- **Colors:** Neon cyan (`#00E5FF`), magenta accents
-- **Layout:** `activity_app_layout.xml` uses MaterialCardView with space gradient background
-- All buttons styled via `Widget.SciFi.Button` (12dp corner radius)
+### UI Theme System
+- **Theme:** `Theme.SciFi` (parent: `Theme.MaterialComponents.DayNight.NoActionBar`)
+- **Layout:** `activity_app_layout_glass.xml` (glassmorphism design)
+- **Button Style:** `Widget.Glass.Button` (16dp corner radius)
+  - Variants: `.Primary`, `.Secondary`, `.Success` with custom backgrounds
+- **Colors:** Defined in `res/values/colors.xml` (glass_accent_1, glass_accent_2, etc.)
 
 ## Build & Development
 
 ### Build Commands
 ```bash
+# Clean build (recommended after dependency changes)
+./gradlew clean assembleDebug --stacktrace
+
 # Debug build
-./gradlew assembleDebug --stacktrace
+./gradlew assembleDebug
 
-# Clean build
-./gradlew clean assembleDebug
-
-# Install on connected device
+# Install to connected device/emulator
 ./gradlew installDebug
+
+# Output: app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Gradle Configuration
+- **Suppress SDK warning:** `android.suppressUnsupportedCompileSdk=34` (Gradle 8.0 with SDK 34)
+- **Memory:** `org.gradle.jvmargs=-Xmx2048m` (prevents OOM during build)
+- **Repositories:** `google()`, `mavenCentral()` (no jitpack or custom repos)
+
+### ProGuard Rules (Release)
+```gradle
+# app/proguard-rules.pro
+-keep class org.webrtc.** { *; }          # WebRTC native methods
+-keep class com.x2bro4pro.bro4call.** { *; } # Keep all app classes
+-keep class okhttp3.** { *; }             # WebSocket client
+-keep class androidx.security.crypto.** { *; } # EncryptedSharedPreferences
 ```
 
 ### CI/CD
-- GitHub Actions workflow: `.github/workflows/android_build.yml`
-- Requires JDK 17 (Gradle 8.1.1 + AGP 8.1.1)
-- Artifacts uploaded to GitHub (app-debug.apk)
+- **Workflow:** `.github/workflows/android_build.yml`
+- **JDK Version:** 17 (required for Gradle 8.0+)
+- **Artifacts:** Uploads `app-debug.apk` via `actions/upload-artifact@v4`
 
-### Firebase Configuration
-- **Project ID:** `bro4call`
-- **Package:** `com.x2bro4pro.bro4call`
-- Config file: `app/google-services.json` (don't commit API keys)
+### Firebase Setup
+- **Project:** `bro4call`
+- **Config:** `app/google-services.json` (auto-generates `build/generated/res/processDebugGoogleServices/values/values.xml`)
+- **FCM Channels:** `fcm_notifications`, `incoming_call_channel`
 
-### Key Gradle Settings
-```properties
-android.useAndroidX=true
-android.enableJetifier=true
-android.suppressUnsupportedCompileSdk=34  # SDK 34 with Gradle 8.0
-org.gradle.jvmargs=-Xmx2048m             # Increase heap for build
+## Common Development Patterns
+
+### Adding Signaling Message Types
+1. **Parse in SignalingClient:**
+```kotlin
+// SignalingClient.kt line ~105
+override fun onMessage(webSocket: WebSocket, text: String) {
+    val json = JSONObject(text)
+    when (json.optString("type")) {
+        "offer", "answer", "candidate", "system" -> listener.onNewSignalReceived(json)
+        "your_new_type" -> listener.onNewSignalReceived(json)
+    }
+}
 ```
 
-## Common Patterns
+2. **Handle in listeners:**
+```kotlin
+// AppActivity.kt or CallService.kt
+override fun onNewSignalReceived(message: JSONObject) {
+    when (message.optString("type")) {
+        "your_new_type" -> handleYourMessage(message)
+    }
+}
+```
 
-### Adding New Signaling Message Types
-1. Update `SignalingClient.onMessage()` to parse new type
-2. Add handler in `AppActivity.onNewSignalReceived()` or `CallService.onNewSignalReceived()`
-3. Send messages via `SignalingClient.send(JSONObject)`
+3. **Send from client:**
+```kotlin
+val msg = JSONObject().apply {
+    put("type", "your_new_type")
+    put("data", someValue)
+}
+signalingClient.send(msg)
+```
 
 ### Testing Reconnection Logic
-- Disable network in emulator/device
-- Check `onReconnecting()` callbacks in logs
-- Verify exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s
+```bash
+# Enable airplane mode, then disable after 10s
+adb shell cmd connectivity airplane-mode enable
+# Check logs for: "Reconnecting attempt X with delay Y ms"
+adb logcat | grep "SignalingClient"
+```
+Expected backoff delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s (then resets to mid-range)
 
 ### Permission Handling
-Required runtime permissions (API 24+):
-- `RECORD_AUDIO` - request in `AppActivity.onCreate()`
-- `POST_NOTIFICATIONS` (API 33+) - for incoming call alerts
-- `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` - for reliable background service
+```kotlin
+// AppActivity.onCreate() checks:
+if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
+    != PackageManager.PERMISSION_GRANTED) {
+    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+}
+// Required: RECORD_AUDIO, POST_NOTIFICATIONS (API 33+), REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+```
 
-## Known Issues & Workarounds
+### Input Sanitization
+```kotlin
+// All user inputs pass through:
+private fun sanitizeInput(input: String): String {
+    return input.replace(Regex("[<>&\"']"), "").trim().take(200)
+}
+```
+
+## Known Issues & Fixes
 
 ### Native Library Conflicts
-WebRTC includes `libc++_shared.so` for multiple ABIs. Resolve with:
+**Symptom:** `Duplicate files copied in APK lib/*/libc++_shared.so`  
+**Fix:** Already configured in `app/build.gradle`:
 ```gradle
 packagingOptions {
     pickFirst 'lib/x86/libc++_shared.so'
@@ -151,20 +233,27 @@ packagingOptions {
 }
 ```
 
-### Backend Host Configuration
-Always use **domain only** for `SignalingClient`, **full URL** for `AuthClient`:
+### Reconnection Loops on Logout
+**Cause:** `SignalingClient` stores `lastRoomId`/`lastToken` and attempts reconnect even after logout  
+**Fix:** Implemented in `SignalingClient.scheduleReconnectIfNeeded()`:
 ```kotlin
-SignalingClient(listener, "call-server.netdoc64.workers.dev")
-AuthClient(context, "https://call-server.netdoc64.workers.dev")
+if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
+    listener.onReconnectFailed()
+    return // Don't reconnect without credentials
+}
 ```
 
-### FCM Token Registration
-`TOO_MANY_REGISTRATIONS` error: Disable auto token sending in `onTokenRefresh()` during development.
+### FCM Token Registration Errors
+**Symptom:** `TOO_MANY_REGISTRATIONS`  
+**Cause:** Rapid token refresh during development  
+**Fix:** Disable auto-sending in `MyFirebaseMessagingService.onNewToken()` for debug builds
 
 ## Testing Checklist
-- [ ] WebSocket connects after login
-- [ ] Incoming call notification appears (test with backend trigger)
-- [ ] Audio streams established (check WebRTC peer connection state)
-- [ ] Service survives app kill (boot receiver)
-- [ ] Reconnection works after network drop
-- [ ] Battery optimization dialog shown (first run)
+- [ ] Login/Register with backend (credentials stored encrypted)
+- [ ] WebSocket connects after login (check "WebSocket connection opened" log)
+- [ ] Incoming call notification (test with backend FCM trigger)
+- [ ] Answer call → WebRTC audio established (check PeerConnection state logs)
+- [ ] App backgrounded → `CallService` stays alive (check notification)
+- [ ] Device reboot → `BootReceiver` restarts service (if logged in)
+- [ ] Network loss → reconnection backoff (check "Reconnecting attempt X" logs)
+- [ ] Battery optimization dialog shown on first run
