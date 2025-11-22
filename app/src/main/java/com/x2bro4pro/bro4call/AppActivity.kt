@@ -89,6 +89,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private val liveVisitors = mutableListOf<Visitor>()
     private lateinit var visitorAdapter: VisitorAdapter
     
+    // HTTP Call tracking for cleanup
+    private val activeCalls = mutableListOf<okhttp3.Call>()
+    
     // Supervisor Monitoring
     private var isMonitoring = false
     private var monitoringRoomId: String? = null
@@ -152,6 +155,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         @Volatile
         private var webRtcInitialized = false
         private val webRtcLock = Any()
+        
+        // Singleton OkHttpClient for all HTTP requests
+        private val httpClient by lazy {
+            okhttp3.OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build()
+        }
+    }
+    
+    // Helper: Safe UI update that checks lifecycle state
+    private fun safeRunOnUiThread(action: () -> Unit) {
+        if (!isFinishing && !isDestroyed) {
+            runOnUiThread(action)
+        }
     }
     
     private fun initializeWebRTC() {
@@ -167,11 +186,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             }
         }
         
-        // Factory mit Audio Device Module und Constraints
-        val options = PeerConnectionFactory.Options()
-        val factory = PeerConnectionFactory.builder()
-            .setOptions(options)
-            .createPeerConnectionFactory()
+        // Factory mit Audio Device Module und Constraints - auch in synchronized
+        val factory = synchronized(webRtcLock) {
+            val options = PeerConnectionFactory.Options()
+            PeerConnectionFactory.builder()
+                .setOptions(options)
+                .createPeerConnectionFactory()
+        }
         
         webRtcClient = PeerConnectionClient(factory, this)
     }
@@ -370,6 +391,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             unbindService(serviceConnection)
             isServiceBound = false
         }
+        
+        // Cleanup monitoring client to prevent memory leak
+        monitoringClient?.disconnect()
+        monitoringClient = null
+        
+        // Cancel all active HTTP calls to prevent callbacks after destroy
+        activeCalls.forEach { it.cancel() }
+        activeCalls.clear()
+        
         signalingClient.disconnect()
         webRtcClient.close()
     }
@@ -561,7 +591,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // --- Signaling Listener Implementierung ---
 
     override fun onWebSocketOpen() {
-        runOnUiThread { 
+        safeRunOnUiThread { 
             statusTextView.text = "Status: ✅ Verbunden"
             updateConnectionUI(isConnected = true)
             connectionQualityView.visibility = View.VISIBLE
@@ -570,7 +600,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     override fun onReconnecting(attempt: Int, delayMs: Int) {
-        runOnUiThread {
+        safeRunOnUiThread {
             statusTextView.text = "Status: Verbindung verloren — reconnect Versuch $attempt in ${delayMs}ms"
             val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
             pb.visibility = View.VISIBLE
@@ -579,7 +609,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     override fun onReconnectFailed() {
-        runOnUiThread {
+        safeRunOnUiThread {
             statusTextView.text = "Status: Verbindung konnte nicht wiederhergestellt werden"
             val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
             pb.visibility = View.GONE
@@ -589,14 +619,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     override fun onWebSocketClosed() {
-        runOnUiThread { 
+        safeRunOnUiThread { 
             statusTextView.text = "Status: Getrennt (Versuche Reconnect...)"
             updateConnectionUI(isConnected = false)
         }
     }
 
     override fun onError(message: String) {
-        runOnUiThread {
+        safeRunOnUiThread {
             Toast.makeText(this, "WS Error: $message", Toast.LENGTH_LONG).show()
             val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
             pb.visibility = View.GONE
@@ -605,14 +635,35 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     override fun onNewSignalReceived(message: JSONObject) {
-        runOnUiThread {
-            when (message.getString("type")) {
+        safeRunOnUiThread {
+            val type = message.optString("type", "")
+            if (type.isEmpty()) {
+                Log.w("AppActivity", "Received message without type: $message")
+                return@safeRunOnUiThread
+            }
+            
+            when (type) {
                 "identify" -> handleNewVisitor(message) 
                 "system" -> handleSystemMessage(message)
                 "offer" -> handleIncomingOffer(message) 
-                "answer" -> webRtcClient.handleAnswer(message.getJSONObject("sdp"))
-                "candidate" -> webRtcClient.handleIceCandidate(message.getJSONObject("candidate"))
+                "answer" -> {
+                    val sdp = message.optJSONObject("sdp")
+                    if (sdp != null) {
+                        webRtcClient.handleAnswer(sdp)
+                    } else {
+                        Log.e("AppActivity", "Answer without sdp object")
+                    }
+                }
+                "candidate" -> {
+                    val candidate = message.optJSONObject("candidate")
+                    if (candidate != null) {
+                        webRtcClient.handleIceCandidate(candidate)
+                    } else {
+                        Log.e("AppActivity", "Candidate without candidate object")
+                    }
+                }
                 "chat" -> handleChatMessage(message)
+                else -> Log.w("AppActivity", "Unknown message type: $type")
             }
         }
     }
@@ -825,6 +876,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
         if (token != null) {
             statusTextView.text = "Status: Manueller Verbindungsaufbau..."
+            liveVisitors.clear()
+            visitorAdapter.notifyDataSetChanged()
             signalingClient.connect(room, token)
             currentRoom = room
             currentToken = token
@@ -1026,25 +1079,28 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         // API Call zu /api/admin/data
         val url = "https://$BACKEND_HOST/api/admin/data"
-        val client = okhttp3.OkHttpClient()
         val req = okhttp3.Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")
             .get()
             .build()
         
-        client.newCall(req).enqueue(object : okhttp3.Callback {
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                runOnUiThread {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
                     Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
                     statusTextView.text = "Status: Fehler beim Laden"
                 }
             }
             
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
                 response.use {
                     if (!it.isSuccessful) {
-                        runOnUiThread {
+                        safeRunOnUiThread {
                             Toast.makeText(this@AppActivity, "Fehler: ${it.code}", Toast.LENGTH_LONG).show()
                         }
                         return
@@ -1054,7 +1110,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     val usersArray = jsonData.optJSONArray("users")
                     val domainsArray = jsonData.optJSONArray("domains")
                     
-                    runOnUiThread {
+                    safeRunOnUiThread {
                         showUserList(usersArray, domainsArray)
                         statusTextView.text = "Status: Admin-Modus"
                     }
@@ -1137,22 +1193,25 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val token = currentToken ?: return
         val url = "https://$BACKEND_HOST/api/admin/approve/$userId"
         
-        val client = okhttp3.OkHttpClient()
         val req = okhttp3.Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")
             .post(okhttp3.RequestBody.create(null, ""))
             .build()
         
-        client.newCall(req).enqueue(object : okhttp3.Callback {
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                runOnUiThread {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
                     Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
             
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                runOnUiThread {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
                     if (response.isSuccessful) {
                         Toast.makeText(this@AppActivity, "✅ $email wurde freigegeben", Toast.LENGTH_LONG).show()
                         openUserManagement() // Refresh
@@ -1207,7 +1266,6 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             put("allowed_domains", org.json.JSONArray(domains))
         }
         
-        val client = okhttp3.OkHttpClient()
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val body = json.toString().toRequestBody(mediaType)
         
@@ -1217,15 +1275,19 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .post(body)
             .build()
         
-        client.newCall(req).enqueue(object : okhttp3.Callback {
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                runOnUiThread {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
                     Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
             
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                runOnUiThread {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
                     if (response.isSuccessful) {
                         Toast.makeText(this@AppActivity, "✅ Domains zugewiesen", Toast.LENGTH_LONG).show()
                         openUserManagement() // Refresh
@@ -1270,24 +1332,27 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         statusTextView.text = "Status: Lade aktive Calls..."
         
         val url = "https://$BACKEND_HOST/api/admin/data"
-        val client = okhttp3.OkHttpClient()
         val req = okhttp3.Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")
             .get()
             .build()
         
-        client.newCall(req).enqueue(object : okhttp3.Callback {
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                runOnUiThread {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
                     Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
             
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
                 response.use {
                     if (!it.isSuccessful) {
-                        runOnUiThread {
+                        safeRunOnUiThread {
                             Toast.makeText(this@AppActivity, "Fehler: ${it.code}", Toast.LENGTH_LONG).show()
                         }
                         return
@@ -1298,7 +1363,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
                     val domainsArray = jsonData.optJSONArray("domains")
                     
-                    runOnUiThread {
+                    safeRunOnUiThread {
                         showMonitoringDomainSelection(domainsArray)
                     }
                 }
@@ -1382,28 +1447,28 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // Erstelle separaten SignalingClient für Monitoring
         monitoringClient = SignalingClient(object : SignalingListener {
             override fun onWebSocketOpen() {
-                runOnUiThread {
+                safeRunOnUiThread {
                     statusTextView.text = "Status: 👁️ Monitoring $roomId"
                     Toast.makeText(this@AppActivity, "Monitoring aktiv", Toast.LENGTH_SHORT).show()
                 }
             }
             
             override fun onNewSignalReceived(message: org.json.JSONObject) {
-                runOnUiThread {
+                safeRunOnUiThread {
                     // Zeige Monitoring-Daten an
                     handleMonitoringMessage(message)
                 }
             }
             
             override fun onWebSocketClosed() {
-                runOnUiThread {
+                safeRunOnUiThread {
                     statusTextView.text = "Status: Monitoring beendet"
                     isMonitoring = false
                 }
             }
             
             override fun onError(message: String) {
-                runOnUiThread {
+                safeRunOnUiThread {
                     Toast.makeText(this@AppActivity, "Monitoring Error: $message", Toast.LENGTH_LONG).show()
                 }
             }
