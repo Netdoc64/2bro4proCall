@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/glass_card_dark"
+    app:cardBackgroundColor="@android:color/transparent"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
+    android:layout_marginBottom="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/glass_card_dark"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Avatar Circle -->
+        <TextView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="👤"
+            android:textSize="24sp"
+            android:background="@drawable/glass_button_primary"
+            android:gravity="center"
+            android:layout_marginEnd="16dp"
+            android:paddingTop="8dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/visitor_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Besucher"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/visitor_domain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Domain"
+                android:textSize="13sp"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif" />
+
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/call_visitor_button"
+            style="@style/Widget.Glass.Button.Success"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="📞 Anrufen"
+            android:textSize="14sp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

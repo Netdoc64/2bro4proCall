@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_space_gradient"
+    android:padding="16dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardBackgroundColor="#40FFFFFF"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="12dp"
+        android:layout_marginBottom="16dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="#80FFFFFF">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@android:color/transparent"> <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚡"
+                    android:textSize="24sp"
+                    android:layout_marginEnd="12dp"/>
+
+                <TextView
+                    android:id="@+id/status_text_view"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Status: Verbinde..."
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/connection_quality_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📶"
+                    android:textSize="14sp"
+                    android:layout_marginEnd="8dp"
+                    android:visibility="gone"
+                    android:textColor="@color/neon_cyan"/>
+
+                <ProgressBar
+                    android:id="@+id/reconnect_progress"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:indeterminate="true"
+                    android:visibility="gone"
+                    android:indeterminateTint="@color/neon_cyan" />
+
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/connect_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🔄 Manueller Reconnect"
+                app:backgroundTint="#80ACCBFF"
+                android:textColor="@color/space_background_start"
+                android:padding="14dp"
+                android:layout_marginTop="12dp"
+                app:cornerRadius="12dp"
+                app:elevation="4dp"
+                app:iconGravity="textStart"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/login_button"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="🔐 Login"
+            app:backgroundTint="@color/neon_cyan"
+            android:textColor="@color/space_background_start"
+            android:layout_marginEnd="8dp"
+            app:cornerRadius="14dp"
+            app:elevation="6dp"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            app:iconGravity="textStart" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/register_button"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="✨ Registrieren"
+            app:backgroundTint="@color/neon_magenta"
+            android:textColor="@color/text_primary"
+            android:layout_marginStart="8dp"
+            app:cornerRadius="14dp"
+            app:elevation="6dp"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            app:iconGravity="textStart" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/admin_button"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="🔧 Admin Panel"
+            app:backgroundTint="#99FF9800"
+            android:textColor="#FFFFFF"
+            android:layout_marginEnd="8dp"
+            app:cornerRadius="14dp"
+            app:elevation="6dp"
+            android:visibility="gone"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif-medium"
+            app:strokeWidth="2dp"
+            app:strokeColor="#FFB74D" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/supervisor_button"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="👁️ Supervisor"
+            app:backgroundTint="#999C27B0"
+            android:textColor="@color/text_primary"
+            android:layout_marginStart="8dp"
+            app:cornerRadius="14dp"
+            app:elevation="6dp"
+            android:visibility="gone"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif-medium"
+            app:strokeWidth="2dp"
+            app:strokeColor="#BA68C8" />
+
+    </LinearLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        app:cardBackgroundColor="#40FFFFFF"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="12dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="#80FFFFFF">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="@android:color/transparent"> <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="#1A1A1A"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📞"
+                    android:textSize="20sp"
+                    android:layout_marginEnd="12dp"/>
+
+                <TextView
+                    android:id="@+id/visitor_data_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="AKTIVE BESUCHER"
+                    android:textColor="@color/neon_cyan"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🟢"
+                    android:textSize="12sp"/>
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="@color/neon_cyan"
+                android:alpha="0.5"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/live_visitors_recycler"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="12dp"
+                tools:listitem="@layout/visitor_list_item_template"
+                android:scrollbars="vertical"
+                android:clipToPadding="false" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/active_call_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        app:cardBackgroundColor="#40FFFFFF"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="12dp"
+        android:visibility="gone"
+        app:strokeWidth="2dp"
+        app:strokeColor="#FF9800"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@android:color/transparent"> <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#40000000"
+                android:padding="20dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📞 LIVE ANRUF"
+                    android:textColor="#FF9800"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="12dp"/>
+
+                <TextView
+                    android:id="@+id/active_call_info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Im Gespräch mit..."
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:gravity="center"/>
+
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="180dp"
+                android:layout_height="180dp"
+                android:layout_gravity="center"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="#40000000"
+                app:cardCornerRadius="90dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#FFFFFF">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/app_logo"
+                    android:padding="0dp"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Call Avatar"/>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="#40000000"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#80FFFFFF">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#40FFFFFF"
+                        android:padding="12dp"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💬"
+                            android:textSize="18sp"
+                            android:layout_marginEnd="8dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="CHAT"
+                            android:textColor="@color/neon_cyan"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"/>
+
+                    </LinearLayout>
+
+                    <ScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:id="@+id/chat_messages_view"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="#EEEEEE"
+                            android:textSize="13sp"
+                            android:lineSpacingExtra="4dp"
+                            android:fontFamily="sans-serif"
+                            tools:text="[12:34:56] Agent: Hallo!\n[12:35:01] Besucher: Hi!"/>
+
+                    </ScrollView>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="12dp"
+                        android:background="#40000000"
+                        android:gravity="center_vertical">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/chat_input"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Nachricht eingeben..."
+                            android:textColor="#FFFFFF"
+                            android:textColorHint="#CCCCCC"
+                            android:background="#50FFFFFF"
+                            android:padding="14dp"
+                            android:inputType="text"
+                            android:imeOptions="actionSend"
+                            android:maxLines="3"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chat_send_button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📤"
+                            app:backgroundTint="@color/neon_cyan"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginStart="8dp"
+                            app:cornerRadius="8dp"
+                            android:minWidth="56dp"
+                            android:textSize="20sp"/>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/call_end_button"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:text="📞 AUFLEGEN"
+                app:backgroundTint="#F44336"
+                android:textColor="@android:color/white"
+                android:layout_marginTop="16dp"
+                app:cornerRadius="12dp"
+                app:elevation="6dp"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium"
+                app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                app:iconTint="@android:color/white"
+                app:iconGravity="textStart"/>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:id="@+id/visitor_data_text_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        tools:text="Legacy Placeholder"/>
+
+</LinearLayout>
