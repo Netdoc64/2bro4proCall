@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-31:/values-en-rXC/values-en-rXC.xml",
+            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-39:/values-en-rXC/values-en-rXC.xml",
             "map": [
                 {
-                    "source": "/home/codespace/.gradle/caches/transforms-4/750ea0a75dd9aabdbcc7d488ae1ac0f1/transformed/appcompat-1.6.1/res/values-en-rXC/values-en-rXC.xml",
+                    "source": "/home/codespace/.gradle/caches/transforms-4/ac87f2dcd48fe0db78c14fa0a12d51b2/transformed/appcompat-1.6.1/res/values-en-rXC/values-en-rXC.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -14,7 +14,7 @@
                     }
                 },
                 {
-                    "source": "/home/codespace/.gradle/caches/transforms-4/d4c6162ffeb8a4db343a69dbe895efcb/transformed/core-1.9.0/res/values-en-rXC/values-en-rXC.xml",
+                    "source": "/home/codespace/.gradle/caches/transforms-4/f3bb966adce804eed9b688f740e1e81b/transformed/core-1.9.0/res/values-en-rXC/values-en-rXC.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

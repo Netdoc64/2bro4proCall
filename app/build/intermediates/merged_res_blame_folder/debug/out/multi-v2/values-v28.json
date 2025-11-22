@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-31:/values-v28/values-v28.xml",
+            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-39:/values-v28/values-v28.xml",
             "map": [
                 {
-                    "source": "/home/codespace/.gradle/caches/transforms-4/ca3bd5becaa31f31232c674b4a5b2c3b/transformed/material-1.10.0/res/values-v28/values-v28.xml",
+                    "source": "/home/codespace/.gradle/caches/transforms-4/8155d96484fd255de1e5e961f57c26b3/transformed/material-1.10.0/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "/home/codespace/.gradle/caches/transforms-4/750ea0a75dd9aabdbcc7d488ae1ac0f1/transformed/appcompat-1.6.1/res/values-v28/values-v28.xml",
+                    "source": "/home/codespace/.gradle/caches/transforms-4/ac87f2dcd48fe0db78c14fa0a12d51b2/transformed/appcompat-1.6.1/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,8",
                         "startColumns": "4,4,4,4",

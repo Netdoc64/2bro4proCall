@@ -38,6 +38,8 @@ import org.json.JSONObject
 import org.webrtc.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.google.firebase.messaging.FirebaseMessaging
+import com.google.android.gms.tasks.OnCompleteListener
 
 // Data Class für einen aktiven Web-Besucher
 data class Visitor(
@@ -371,6 +373,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             
                             // Zeige Admin/Supervisor Buttons basierend auf Rolle
                             updateRoleBasedUI(role)
+                            
+                            // FCM Token an Backend senden
+                            sendFcmTokenToBackend()
                             
                             // connect to first domain or show selection
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
@@ -864,6 +869,30 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         } catch (e: Exception) {
             Log.e("AppActivity", "Failed to stop CallService", e)
         }
+    }
+    
+    // FCM Token Management
+    private fun sendFcmTokenToBackend() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("AppActivity", "FCM token fetch failed", task.exception)
+                return@OnCompleteListener
+            }
+            
+            val fcmToken = task.result
+            Log.d("AppActivity", "FCM Token: $fcmToken")
+            
+            // An Backend senden
+            authClient.sendFcmToken(fcmToken, object : AuthClient.FcmTokenCallback {
+                override fun onSuccess() {
+                    Log.d("AppActivity", "FCM token sent to backend successfully")
+                }
+                
+                override fun onFailure(message: String) {
+                    Log.w("AppActivity", "Failed to send FCM token: $message")
+                }
+            })
+        })
     }
     
     private fun checkBatteryOptimization() {

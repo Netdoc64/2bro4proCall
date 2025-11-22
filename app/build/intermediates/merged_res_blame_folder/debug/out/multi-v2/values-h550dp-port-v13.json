@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-31:/values-h550dp-port-v13/values-h550dp-port-v13.xml",
+            "outputFile": "com.x2bro4pro.bro4call.app-mergeDebugResources-39:/values-h550dp-port-v13/values-h550dp-port-v13.xml",
             "map": [
                 {
-                    "source": "/home/codespace/.gradle/caches/transforms-4/ca3bd5becaa31f31232c674b4a5b2c3b/transformed/material-1.10.0/res/values-h550dp-port-v13/values-h550dp-port-v13.xml",
+                    "source": "/home/codespace/.gradle/caches/transforms-4/8155d96484fd255de1e5e961f57c26b3/transformed/material-1.10.0/res/values-h550dp-port-v13/values-h550dp-port-v13.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

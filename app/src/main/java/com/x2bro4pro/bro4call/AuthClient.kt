@@ -205,4 +205,56 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
     fun clear() {
         prefs.edit().clear().apply()
     }
+    
+    // FCM Token Management
+    interface FcmTokenCallback {
+        fun onSuccess()
+        fun onFailure(message: String)
+    }
+    
+    fun sendFcmToken(fcmToken: String, cb: FcmTokenCallback) {
+        val token = getToken()
+        if (token.isNullOrBlank()) {
+            cb.onFailure("Not logged in")
+            return
+        }
+        
+        val url = "$baseUrl/api/fcm-token"
+        val json = JSONObject().apply {
+            put("fcmToken", fcmToken)
+        }
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
+        val req = Request.Builder()
+            .url(url)
+            .post(body)
+            .header("Authorization", "Bearer $token")
+            .build()
+            
+        client.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("AuthClient", "FCM token send failed: ${e.message}")
+                cb.onFailure("Network error: ${e.message}")
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!it.isSuccessful) {
+                        val errorMsg = try {
+                            val errorBody = it.body?.string() ?: ""
+                            val errorJson = JSONObject(errorBody)
+                            errorJson.optString("error", "Unknown error")
+                        } catch (e: Exception) {
+                            "HTTP ${it.code}"
+                        }
+                        Log.e("AuthClient", "FCM token send failed: $errorMsg")
+                        cb.onFailure(errorMsg)
+                        return
+                    }
+                    Log.d("AuthClient", "FCM token sent successfully")
+                    cb.onSuccess()
+                }
+            }
+        })
+    }
 }
