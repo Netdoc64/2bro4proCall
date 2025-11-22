@@ -3,6 +3,7 @@ package com.x2bro4pro.bro4call
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -94,7 +95,11 @@ class CallService : Service(), SignalingListener {
             text = "Warte auf eingehende Anrufe..."
         )
         
-        startForeground(SERVICE_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(SERVICE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(SERVICE_ID, notification)
+        }
         Log.d(TAG, "Service started in foreground")
     }
     

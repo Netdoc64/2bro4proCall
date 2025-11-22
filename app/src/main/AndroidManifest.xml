@@ -9,7 +9,6 @@
     
     <!-- Foreground Service und Benachrichtigungen -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
@@ -36,7 +35,7 @@
             android:name=".CallService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone"/>
+            android:foregroundServiceType="microphone"/>
         
         <!-- Boot Receiver für Auto-Start nach Neustart -->
         <receiver
