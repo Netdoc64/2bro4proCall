@@ -11,17 +11,25 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 
-class AuthClient(private val context: Context, private val baseUrl: String) {
-    private val client = OkHttpClient()
-    private val prefs: SharedPreferences by lazy { createEncryptedPrefs() }
-
+class AuthClient(private val context: Context, private val backendBaseUrl: String) {
     companion object {
+        private val client by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        }
+        
         private const val PREF_FILE = "secure_prefs"
         private const val KEY_TOKEN = "jwt_token"
         private const val KEY_ROLE = "jwt_role"
         private const val KEY_DOMAINS = "jwt_domains"
         private const val KEY_ROOM_ID = "active_room_id"
     }
+    
+    private val baseUrl = backendBaseUrl
+    private val prefs: SharedPreferences by lazy { createEncryptedPrefs() }
 
     private fun createEncryptedPrefs(): SharedPreferences {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)

@@ -77,6 +77,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var chatSendButton: Button
     private lateinit var chatMessagesView: TextView
     private lateinit var connectionQualityView: TextView
+    private lateinit var visitorCountBadge: TextView
     // NOTE: visitorDataTextView ist das alte Element, das wir hier nicht mehr explizit nutzen.
 
     // Daten und Clients
@@ -140,14 +141,32 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
 
     // --- WebRTC Setup ---
+    companion object {
+        @Volatile
+        private var webRtcInitialized = false
+        private val webRtcLock = Any()
+    }
+    
     private fun initializeWebRTC() {
-        PeerConnectionFactory.initialize(
-            PeerConnectionFactory.InitializationOptions.builder(this)
-                .setEnableInternalTracer(true)
-                .createInitializationOptions()
-        )
-        val factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
-        webRtcClient = PeerConnectionClient(factory)
+        // Singleton Pattern - initialisiere nur einmal pro App-Lebensdauer
+        synchronized(webRtcLock) {
+            if (!webRtcInitialized) {
+                PeerConnectionFactory.initialize(
+                    PeerConnectionFactory.InitializationOptions.builder(this)
+                        .setEnableInternalTracer(true)
+                        .createInitializationOptions()
+                )
+                webRtcInitialized = true
+            }
+        }
+        
+        // Factory mit Audio Device Module und Constraints
+        val options = PeerConnectionFactory.Options()
+        val factory = PeerConnectionFactory.builder()
+            .setOptions(options)
+            .createPeerConnectionFactory()
+        
+        webRtcClient = PeerConnectionClient(factory, this)
     }
 
     // --- Activity Lifecycle ---
@@ -188,6 +207,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         chatSendButton = findViewById(R.id.chat_send_button)
         chatMessagesView = findViewById(R.id.chat_messages_view)
         connectionQualityView = findViewById(R.id.connection_quality_view)
+        visitorCountBadge = findViewById(R.id.visitor_count_badge)
+        
+        // Enter-Taste zum Senden aktivieren
+        chatInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
+                sendChatMessage()
+                true
+            } else false
+        }
 
         // Login/Register visible buttons
         loginButton.setOnClickListener { performLoginUI() }
@@ -605,6 +633,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         liveVisitors.add(newVisitor)
         visitorAdapter.notifyItemInserted(liveVisitors.size - 1)
         statusTextView.text = "Status: ${liveVisitors.size} Live-Besucher"
+        visitorCountBadge.text = liveVisitors.size.toString()
     }
 
     private fun handleVisitorLeft(message: JSONObject) {
@@ -614,6 +643,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             liveVisitors.removeAt(index)
             visitorAdapter.notifyItemRemoved(index)
             statusTextView.text = "Status: ${liveVisitors.size} Live-Besucher"
+            visitorCountBadge.text = liveVisitors.size.toString()
         }
     }
 
@@ -728,6 +758,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .format(java.util.Date())
         val newMessage = "[$timestamp] $sender: $text\n"
         chatMessagesView.text = currentText + newMessage
+        
+        // Auto-scroll zu neuester Nachricht
+        chatMessagesView.post {
+            chatMessagesView.parent?.let { parent ->
+                (parent as? android.widget.ScrollView)?.fullScroll(android.view.View.FOCUS_DOWN)
+            }
+        }
     }
     
     // --- Admin/Supervisor Funktionen ---
@@ -1490,34 +1527,80 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         override fun getItemCount() = visitors.size
     }
 
-    // 2. PeerConnectionClient: WebRTC-Logik (unverändert)
-    class PeerConnectionClient(factory: PeerConnectionFactory) {
+    // 2. PeerConnectionClient: WebRTC-Logik mit Audio-Support
+    class PeerConnectionClient(private val factory: PeerConnectionFactory, private val activity: AppActivity? = null) {
         var peerConnection: PeerConnection? = null
         var onIceCandidateCallback: ((IceCandidate) -> Unit)? = null
+        private var localAudioTrack: AudioTrack? = null
         private val iceServers = listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
         )
 
         init {
+            // Audio-Track mit Echo Cancellation und Noise Suppression
+            val audioConstraints = MediaConstraints().apply {
+                mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
+            }
+            
+            val audioSource = factory.createAudioSource(audioConstraints)
+            localAudioTrack = factory.createAudioTrack("audio1", audioSource)
+            
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
             peerConnection = factory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
                 override fun onIceCandidate(candidate: IceCandidate) { onIceCandidateCallback?.invoke(candidate) }
                 override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) {}
                 override fun onAddStream(stream: MediaStream) {}
                 override fun onDataChannel(dataChannel: DataChannel) {}
-                override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState) {}
+                override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState) {
+                    // WebRTC Connection Quality Monitoring
+                    when (newState) {
+                        PeerConnection.IceConnectionState.CONNECTED -> 
+                            activity?.updateConnectionQuality("excellent")
+                        PeerConnection.IceConnectionState.COMPLETED -> 
+                            activity?.updateConnectionQuality("excellent")
+                        PeerConnection.IceConnectionState.CHECKING -> 
+                            activity?.updateConnectionQuality("good")
+                        PeerConnection.IceConnectionState.DISCONNECTED -> 
+                            activity?.updateConnectionQuality("poor")
+                        PeerConnection.IceConnectionState.FAILED -> 
+                            activity?.updateConnectionQuality("bad")
+                        else -> {}
+                    }
+                }
                 override fun onIceConnectionReceivingChange(receiving: Boolean) {}
                 override fun onIceGatheringChange(newState: PeerConnection.IceGatheringState) {}
                 override fun onRemoveStream(stream: MediaStream) {}
                 override fun onSignalingChange(newState: PeerConnection.SignalingState) {}
                 override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<MediaStream>) {}
                 override fun onRemoveTrack(rtpReceiver: RtpReceiver) {}
-                override fun onRenegotiationNeeded() {}
+                override fun onRenegotiationNeeded() {
+                    // Handle renegotiation for network changes
+                    Log.d("WebRTC", "Renegotiation needed")
+                }
             })
+            
+            // Audio-Track zur PeerConnection hinzufügen
+            localAudioTrack?.let { track ->
+                peerConnection?.addTrack(track, listOf("stream1"))
+                Log.d("WebRTC", "Audio track added to PeerConnection")
+            }
         }
         
-        fun createOffer(observer: SdpObserver) { peerConnection?.createOffer(observer, MediaConstraints()) }
-        fun createAnswer(observer: SdpObserver) { peerConnection?.createAnswer(observer, MediaConstraints()) }
+        fun createOffer(observer: SdpObserver) {
+            val constraints = MediaConstraints().apply {
+                mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            }
+            peerConnection?.createOffer(observer, constraints)
+        }
+        fun createAnswer(observer: SdpObserver) {
+            val constraints = MediaConstraints().apply {
+                mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            }
+            peerConnection?.createAnswer(observer, constraints)
+        }
         
         fun handleAnswer(sdpJson: JSONObject) {
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdpJson.getString("sdp"))
@@ -1538,7 +1621,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             peerConnection?.addIceCandidate(candidate)
         }
 
-        fun close() { peerConnection?.close() }
+        fun close() {
+            localAudioTrack?.dispose()
+            localAudioTrack = null
+            peerConnection?.close()
+        }
     }
 }
 

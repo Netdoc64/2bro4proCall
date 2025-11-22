@@ -1,10 +1,22 @@
 [
     {
-        "merged": "com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/visitor_list_item_template.xml",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_template.xml"
+        "merged": "com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/activity_app_layout_glass.xml",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout_glass.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/activity_app_layout.xml",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout.xml"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/activity_app_layout_glass.xml",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout_glass.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/activity_app_layout.xml",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/visitor_list_item_template.xml",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_template.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/visitor_list_item_glass.xml",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_glass.xml"
     }
 ]

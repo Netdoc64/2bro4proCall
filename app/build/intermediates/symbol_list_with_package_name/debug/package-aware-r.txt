@@ -1342,6 +1342,15 @@ color error_color_material_dark
 color error_color_material_light
 color foreground_material_dark
 color foreground_material_light
+color glass_accent_1
+color glass_accent_2
+color glass_accent_3
+color glass_background_end
+color glass_background_start
+color glass_border
+color glass_highlight
+color glass_surface
+color glass_surface_dark
 color highlighted_text_material_dark
 color highlighted_text_material_light
 color m3_appbar_overlay_color
@@ -1968,8 +1977,10 @@ color mtrl_textinput_disabled_color
 color mtrl_textinput_filled_box_default_background_color
 color mtrl_textinput_focused_box_stroke_color
 color mtrl_textinput_hovered_box_stroke_color
+color neon_blue
 color neon_cyan
 color neon_magenta
+color neon_purple
 color notification_action_color_filter
 color notification_icon_bg_color
 color panel_dark
@@ -1989,13 +2000,13 @@ color secondary_text_disabled_material_dark
 color secondary_text_disabled_material_light
 color space_background_end
 color space_background_start
-color surface_translucent
 color switch_thumb_disabled_material_dark
 color switch_thumb_disabled_material_light
 color switch_thumb_material_dark
 color switch_thumb_material_light
 color switch_thumb_normal_material_dark
 color switch_thumb_normal_material_light
+color text_muted
 color text_primary
 color text_secondary
 color tooltip_background_dark
@@ -2877,6 +2888,7 @@ drawable abc_vector_test
 drawable app_logo
 drawable avd_hide_password
 drawable avd_show_password
+drawable bg_glassmorphism
 drawable bg_space_gradient
 drawable btn_checkbox_checked_mtrl
 drawable btn_checkbox_checked_to_unchecked_mtrl_animation
@@ -2911,6 +2923,13 @@ drawable design_ic_visibility
 drawable design_ic_visibility_off
 drawable design_password_eye
 drawable design_snackbar_background
+drawable glass_button_primary
+drawable glass_button_secondary
+drawable glass_button_success
+drawable glass_card
+drawable glass_card_dark
+drawable glass_dialog_bg
+drawable glass_input
 drawable googleg_disabled_color_18
 drawable googleg_standard_color_18
 drawable ic_arrow_back_black_24
@@ -3469,6 +3488,7 @@ id view_tree_view_model_store_owner
 id visible
 id visible_removing_fragment_view_tag
 id visitor_avatar
+id visitor_count_badge
 id visitor_data_label
 id visitor_data_text_view
 id visitor_domain
@@ -3595,6 +3615,7 @@ layout abc_search_view
 layout abc_select_dialog_material
 layout abc_tooltip
 layout activity_app_layout
+layout activity_app_layout_glass
 layout custom_dialog
 layout design_bottom_navigation_item
 layout design_bottom_sheet_dialog
@@ -3672,6 +3693,7 @@ layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
 layout support_simple_spinner_dropdown_item
+layout visitor_list_item_glass
 layout visitor_list_item_template
 mipmap ic_launcher
 mipmap ic_launcher_round
@@ -4687,6 +4709,10 @@ style Widget_Design_Snackbar
 style Widget_Design_TabLayout
 style Widget_Design_TextInputEditText
 style Widget_Design_TextInputLayout
+style Widget_Glass_Button
+style Widget_Glass_Button_Primary
+style Widget_Glass_Button_Secondary
+style Widget_Glass_Button_Success
 style Widget_Material3_ActionBar_Solid
 style Widget_Material3_ActionMode
 style Widget_Material3_AppBarLayout
@@ -4976,7 +5002,6 @@ style Widget_MaterialComponents_Toolbar_Primary
 style Widget_MaterialComponents_Toolbar_PrimarySurface
 style Widget_MaterialComponents_Toolbar_Surface
 style Widget_MaterialComponents_Tooltip
-style Widget_SciFi_Button
 style Widget_Support_CoordinatorLayout
 styleable ActionBar background backgroundSplit backgroundStacked contentInsetEnd contentInsetEndWithActions contentInsetLeft contentInsetRight contentInsetStart contentInsetStartWithNavigation customNavigationLayout displayOptions divider elevation height hideOnContentScroll homeAsUpIndicator homeLayout icon indeterminateProgressStyle itemPadding logo navigationMode popupTheme progressBarPadding progressBarStyle subtitle subtitleTextStyle title titleTextStyle
 styleable ActionBarLayout android_layout_gravity

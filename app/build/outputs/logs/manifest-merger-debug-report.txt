@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-60:12
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-60:12
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-60:12
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-60:12
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-71:12
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-71:12
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-71:12
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:1:1-71:12
 MERGED from [androidx.databinding:viewbinding:8.1.1] /home/codespace/.gradle/caches/transforms-4/0e7b86def93ca48746aaa467be9db098/transformed/jetified-viewbinding-8.1.1/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.firebase:firebase-messaging-ktx:23.4.0] /home/codespace/.gradle/caches/transforms-4/7d2fd792395dc1224838b23d8b686b53/transformed/jetified-firebase-messaging-ktx-23.4.0/AndroidManifest.xml:17:1-32:12
 MERGED from [com.google.android.material:material:1.10.0] /home/codespace/.gradle/caches/transforms-4/8155d96484fd255de1e5e961f57c26b3/transformed/material-1.10.0/AndroidManifest.xml:17:1-24:12
@@ -152,9 +152,31 @@ uses-permission#android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
 ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:17:5-94
 	android:name
 		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:17:22-92
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:18:5-78
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] /home/codespace/.gradle/caches/transforms-4/3568da1fe2a68a9effbf59806d9b749d/transformed/jetified-firebase-messaging-23.4.0/AndroidManifest.xml:22:5-79
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] /home/codespace/.gradle/caches/transforms-4/3568da1fe2a68a9effbf59806d9b749d/transformed/jetified-firebase-messaging-23.4.0/AndroidManifest.xml:22:5-79
+MERGED from [com.google.android.gms:play-services-measurement-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/4e28eac4405d7c17eb2356e637869a5c/transformed/jetified-play-services-measurement-api-21.5.0/AndroidManifest.xml:23:5-79
+MERGED from [com.google.android.gms:play-services-measurement-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/4e28eac4405d7c17eb2356e637869a5c/transformed/jetified-play-services-measurement-api-21.5.0/AndroidManifest.xml:23:5-79
+MERGED from [com.google.firebase:firebase-installations:17.2.0] /home/codespace/.gradle/caches/transforms-4/2995cda26f6db8a3fbbe03625481825d/transformed/jetified-firebase-installations-17.2.0/AndroidManifest.xml:7:5-79
+MERGED from [com.google.firebase:firebase-installations:17.2.0] /home/codespace/.gradle/caches/transforms-4/2995cda26f6db8a3fbbe03625481825d/transformed/jetified-firebase-installations-17.2.0/AndroidManifest.xml:7:5-79
+MERGED from [com.google.android.gms:play-services-measurement:21.5.0] /home/codespace/.gradle/caches/transforms-4/829debcc9b8be4673a7e2175e0488b22/transformed/jetified-play-services-measurement-21.5.0/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.gms:play-services-measurement:21.5.0] /home/codespace/.gradle/caches/transforms-4/829debcc9b8be4673a7e2175e0488b22/transformed/jetified-play-services-measurement-21.5.0/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.gms:play-services-measurement-impl:21.5.0] /home/codespace/.gradle/caches/transforms-4/90099a48214621e890c5cf915ce46087/transformed/jetified-play-services-measurement-impl-21.5.0/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.gms:play-services-measurement-impl:21.5.0] /home/codespace/.gradle/caches/transforms-4/90099a48214621e890c5cf915ce46087/transformed/jetified-play-services-measurement-impl-21.5.0/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] /home/codespace/.gradle/caches/transforms-4/25d5f3b947f9925d58bf5a9e1e13e06c/transformed/jetified-play-services-cloud-messaging-17.1.0/AndroidManifest.xml:7:5-79
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] /home/codespace/.gradle/caches/transforms-4/25d5f3b947f9925d58bf5a9e1e13e06c/transformed/jetified-play-services-cloud-messaging-17.1.0/AndroidManifest.xml:7:5-79
+MERGED from [com.google.android.gms:play-services-measurement-sdk-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/d9ae1ebd1d39399a4e5b0f81710c3c12/transformed/jetified-play-services-measurement-sdk-api-21.5.0/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.gms:play-services-measurement-sdk-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/d9ae1ebd1d39399a4e5b0f81710c3c12/transformed/jetified-play-services-measurement-sdk-api-21.5.0/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] /home/codespace/.gradle/caches/transforms-4/6384aaaa1135e1881096a47136926772/transformed/jetified-transport-backend-cct-3.1.8/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] /home/codespace/.gradle/caches/transforms-4/6384aaaa1135e1881096a47136926772/transformed/jetified-transport-backend-cct-3.1.8/AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] /home/codespace/.gradle/caches/transforms-4/065cf05f91089af161ba2ac5014b2100/transformed/jetified-transport-runtime-3.1.8/AndroidManifest.xml:22:5-79
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] /home/codespace/.gradle/caches/transforms-4/065cf05f91089af161ba2ac5014b2100/transformed/jetified-transport-runtime-3.1.8/AndroidManifest.xml:22:5-79
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:18:22-76
 application
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:19:5-58:19
-INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:19:5-58:19
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:20:5-69:19
+INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:20:5-69:19
 MERGED from [com.google.firebase:firebase-messaging-ktx:23.4.0] /home/codespace/.gradle/caches/transforms-4/7d2fd792395dc1224838b23d8b686b53/transformed/jetified-firebase-messaging-ktx-23.4.0/AndroidManifest.xml:22:5-30:19
 MERGED from [com.google.firebase:firebase-messaging-ktx:23.4.0] /home/codespace/.gradle/caches/transforms-4/7d2fd792395dc1224838b23d8b686b53/transformed/jetified-firebase-messaging-ktx-23.4.0/AndroidManifest.xml:22:5-30:19
 MERGED from [com.google.android.material:material:1.10.0] /home/codespace/.gradle/caches/transforms-4/8155d96484fd255de1e5e961f57c26b3/transformed/material-1.10.0/AndroidManifest.xml:22:5-20
@@ -222,67 +244,81 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /home/codespace/.gradle/cac
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-4/f3bb966adce804eed9b688f740e1e81b/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:23:9-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:24:9-35
 	android:label
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:22:9-34
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:23:9-34
 	android:icon
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:21:9-43
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:22:9-43
 	android:allowBackup
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:20:9-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:21:9-35
 	android:theme
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:24:9-43
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:25:9-43
 activity#com.x2bro4pro.bro4call.AppActivity
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:9-31:20
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:27:9-32:20
 	android:exported
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:47-70
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:27:47-70
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:26:19-46
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:27:19-46
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:27:13-30:29
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:28:13-31:29
 action#android.intent.action.MAIN
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:28:17-68
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:17-68
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:28:25-66
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:17-76
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:30:17-76
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:29:27-74
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:30:27-74
 service#com.x2bro4pro.bro4call.CallService
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:34:9-38:57
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:35:9-39:57
 	android:enabled
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:36:13-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:37:13-35
 	android:exported
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:37:13-37
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:38:13-37
 	android:foregroundServiceType
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:38:13-55
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:39:13-55
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:35:13-40
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:36:13-40
 receiver#com.x2bro4pro.bro4call.BootReceiver
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:41:9-48:20
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:42:9-49:20
 	android:enabled
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:43:13-35
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:44:13-35
 	android:exported
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:44:13-36
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:45:13-36
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:42:13-41
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:43:13-41
 intent-filter#action:name:android.intent.action.BOOT_COMPLETED
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:45:13-47:29
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:46:13-48:29
 action#android.intent.action.BOOT_COMPLETED
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:46:17-78
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:47:17-78
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:46:25-76
-service#com.x2bro4pro.bro4call.MyFirebaseMessagingService
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:51:9-57:19
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:47:25-76
+receiver#com.x2bro4pro.bro4call.NetworkChangeReceiver
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:52:9-59:20
+	android:enabled
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:54:13-35
 	android:exported
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:53:13-37
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:55:13-37
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:52:13-55
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:53:13-50
+intent-filter#action:name:android.net.conn.CONNECTIVITY_CHANGE
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:56:13-58:29
+action#android.net.conn.CONNECTIVITY_CHANGE
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:57:17-78
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:57:25-76
+service#com.x2bro4pro.bro4call.MyFirebaseMessagingService
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:62:9-68:19
+	android:exported
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:64:13-37
+	android:name
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:63:13-55
 intent-filter#action:name:com.google.firebase.MESSAGING_EVENT
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:54:13-56:29
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:65:13-67:29
 action#com.google.firebase.MESSAGING_EVENT
-ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:55:17-77
+ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:66:17-77
 	android:name
-		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:55:25-75
+		ADDED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml:66:25-75
 uses-sdk
 INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml
@@ -477,26 +513,6 @@ ADDED from [com.google.firebase:firebase-analytics-ktx:21.5.0] /home/codespace/.
 		ADDED from [com.google.firebase:firebase-analytics-ktx:21.5.0] /home/codespace/.gradle/caches/transforms-4/4cdc107d2ed2adaca6806e9a2c41884f/transformed/jetified-firebase-analytics-ktx-21.5.0/AndroidManifest.xml:13:17-82
 	android:name
 		ADDED from [com.google.firebase:firebase-analytics-ktx:21.5.0] /home/codespace/.gradle/caches/transforms-4/4cdc107d2ed2adaca6806e9a2c41884f/transformed/jetified-firebase-analytics-ktx-21.5.0/AndroidManifest.xml:12:17-129
-uses-permission#android.permission.ACCESS_NETWORK_STATE
-ADDED from [com.google.firebase:firebase-messaging:23.4.0] /home/codespace/.gradle/caches/transforms-4/3568da1fe2a68a9effbf59806d9b749d/transformed/jetified-firebase-messaging-23.4.0/AndroidManifest.xml:22:5-79
-MERGED from [com.google.android.gms:play-services-measurement-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/4e28eac4405d7c17eb2356e637869a5c/transformed/jetified-play-services-measurement-api-21.5.0/AndroidManifest.xml:23:5-79
-MERGED from [com.google.android.gms:play-services-measurement-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/4e28eac4405d7c17eb2356e637869a5c/transformed/jetified-play-services-measurement-api-21.5.0/AndroidManifest.xml:23:5-79
-MERGED from [com.google.firebase:firebase-installations:17.2.0] /home/codespace/.gradle/caches/transforms-4/2995cda26f6db8a3fbbe03625481825d/transformed/jetified-firebase-installations-17.2.0/AndroidManifest.xml:7:5-79
-MERGED from [com.google.firebase:firebase-installations:17.2.0] /home/codespace/.gradle/caches/transforms-4/2995cda26f6db8a3fbbe03625481825d/transformed/jetified-firebase-installations-17.2.0/AndroidManifest.xml:7:5-79
-MERGED from [com.google.android.gms:play-services-measurement:21.5.0] /home/codespace/.gradle/caches/transforms-4/829debcc9b8be4673a7e2175e0488b22/transformed/jetified-play-services-measurement-21.5.0/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.gms:play-services-measurement:21.5.0] /home/codespace/.gradle/caches/transforms-4/829debcc9b8be4673a7e2175e0488b22/transformed/jetified-play-services-measurement-21.5.0/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.gms:play-services-measurement-impl:21.5.0] /home/codespace/.gradle/caches/transforms-4/90099a48214621e890c5cf915ce46087/transformed/jetified-play-services-measurement-impl-21.5.0/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.gms:play-services-measurement-impl:21.5.0] /home/codespace/.gradle/caches/transforms-4/90099a48214621e890c5cf915ce46087/transformed/jetified-play-services-measurement-impl-21.5.0/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] /home/codespace/.gradle/caches/transforms-4/25d5f3b947f9925d58bf5a9e1e13e06c/transformed/jetified-play-services-cloud-messaging-17.1.0/AndroidManifest.xml:7:5-79
-MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] /home/codespace/.gradle/caches/transforms-4/25d5f3b947f9925d58bf5a9e1e13e06c/transformed/jetified-play-services-cloud-messaging-17.1.0/AndroidManifest.xml:7:5-79
-MERGED from [com.google.android.gms:play-services-measurement-sdk-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/d9ae1ebd1d39399a4e5b0f81710c3c12/transformed/jetified-play-services-measurement-sdk-api-21.5.0/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.gms:play-services-measurement-sdk-api:21.5.0] /home/codespace/.gradle/caches/transforms-4/d9ae1ebd1d39399a4e5b0f81710c3c12/transformed/jetified-play-services-measurement-sdk-api-21.5.0/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] /home/codespace/.gradle/caches/transforms-4/6384aaaa1135e1881096a47136926772/transformed/jetified-transport-backend-cct-3.1.8/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] /home/codespace/.gradle/caches/transforms-4/6384aaaa1135e1881096a47136926772/transformed/jetified-transport-backend-cct-3.1.8/AndroidManifest.xml:24:5-79
-MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] /home/codespace/.gradle/caches/transforms-4/065cf05f91089af161ba2ac5014b2100/transformed/jetified-transport-runtime-3.1.8/AndroidManifest.xml:22:5-79
-MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] /home/codespace/.gradle/caches/transforms-4/065cf05f91089af161ba2ac5014b2100/transformed/jetified-transport-runtime-3.1.8/AndroidManifest.xml:22:5-79
-	android:name
-		ADDED from [com.google.firebase:firebase-messaging:23.4.0] /home/codespace/.gradle/caches/transforms-4/3568da1fe2a68a9effbf59806d9b749d/transformed/jetified-firebase-messaging-23.4.0/AndroidManifest.xml:22:22-76
 uses-permission#com.google.android.c2dm.permission.RECEIVE
 ADDED from [com.google.firebase:firebase-messaging:23.4.0] /home/codespace/.gradle/caches/transforms-4/3568da1fe2a68a9effbf59806d9b749d/transformed/jetified-firebase-messaging-23.4.0/AndroidManifest.xml:26:5-82
 MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] /home/codespace/.gradle/caches/transforms-4/25d5f3b947f9925d58bf5a9e1e13e06c/transformed/jetified-play-services-cloud-messaging-17.1.0/AndroidManifest.xml:11:5-82

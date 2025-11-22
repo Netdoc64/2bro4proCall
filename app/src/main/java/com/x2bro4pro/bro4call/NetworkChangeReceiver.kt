@@ -19,6 +19,7 @@ class NetworkChangeReceiver : BroadcastReceiver() {
         private var lastNetworkAvailable = false
         private var lastReconnectTime = 0L
         private const val RECONNECT_DEBOUNCE_MS = 5000L // 5 Sekunden
+        private var lastTransportType: Int? = null  // Track WiFi vs Mobile
     }
     
     override fun onReceive(context: Context, intent: Intent) {
@@ -81,6 +82,27 @@ class NetworkChangeReceiver : BroadcastReceiver() {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val network = connectivityManager.activeNetwork ?: return false
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            
+            // Track Transport Type für besseres Reconnect-Handling
+            val currentTransportType = when {
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkCapabilities.TRANSPORT_WIFI
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkCapabilities.TRANSPORT_CELLULAR
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkCapabilities.TRANSPORT_ETHERNET
+                else -> null
+            }
+            
+            // Log nur bei Transport-Wechsel
+            if (currentTransportType != lastTransportType && currentTransportType != null) {
+                val typeString = when (currentTransportType) {
+                    NetworkCapabilities.TRANSPORT_WIFI -> "WiFi"
+                    NetworkCapabilities.TRANSPORT_CELLULAR -> "Mobile"
+                    NetworkCapabilities.TRANSPORT_ETHERNET -> "Ethernet"
+                    else -> "Unknown"
+                }
+                Log.d(TAG, "Network transport changed to: $typeString")
+                lastTransportType = currentTransportType
+            }
+            
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         } else {

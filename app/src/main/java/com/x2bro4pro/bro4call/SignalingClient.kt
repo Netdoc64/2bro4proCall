@@ -17,7 +17,17 @@ interface SignalingListener {
 }
 
 class SignalingClient(private val listener: SignalingListener, private val backendHost: String) {
-    private val client = OkHttpClient()
+    companion object {
+        private val client by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .pingInterval(20, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        }
+    }
+    
     private var webSocket: WebSocket? = null
     private var reconnectAttempts = 0
     private var reconnecting = false
@@ -44,6 +54,8 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         lastRoomId = roomId
         lastToken = token
         userInitiatedDisconnect = false
+        reconnectAttempts = 0  // Reset bei jedem neuen connect()
+        reconnecting = false
 
         val scheme = if (backendHost.startsWith("http")) {
             // strip scheme
@@ -106,6 +118,17 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         // mark as user requested to avoid reconnect attempts
         userInitiatedDisconnect = true
         stopHeartbeat()
+        
+        // Warte auf Heartbeat Thread Shutdown (max 2 Sekunden)
+        pingThread?.let { thread ->
+            try {
+                thread.join(2000)
+            } catch (e: InterruptedException) {
+                Log.w("SignalingClient", "Heartbeat thread join interrupted")
+                thread.interrupt()
+            }
+        }
+        
         try {
             webSocket?.close(1000, "App disconnected")
         } finally {

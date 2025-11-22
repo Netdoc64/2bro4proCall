@@ -1,70 +1,114 @@
 [
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-mdpi_ic_launcher.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-mdpi/ic_launcher.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/ic_launcher_foreground.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xhdpi_ic_launcher.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-xhdpi/ic_launcher.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-mdpi_ic_launcher_round.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-mdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/layout_activity_app_layout.xml.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout.xml"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_app_logo.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/app_logo.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-mdpi_ic_launcher_round.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-mdpi/ic_launcher_round.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-xxhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxhdpi_ic_launcher.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-xxhdpi/ic_launcher.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_card_dark.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_card_dark.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/layout_visitor_list_item_template.xml.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_template.xml"
+        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/layout_activity_app_layout_glass.xml.flat",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout_glass.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/drawable_bg_space_gradient.xml.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/drawable/bg_space_gradient.xml"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_dialog_bg.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_dialog_bg.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-xxxhdpi/ic_launcher_round.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_bg_space_gradient.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/bg_space_gradient.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/drawable_card_panel.xml.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/drawable/card_panel.xml"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-hdpi_ic_launcher_round.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-hdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-hdpi_ic_launcher_round.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-hdpi/ic_launcher_round.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-mdpi_ic_launcher.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-mdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/drawable_app_logo.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/drawable/app_logo.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-xxxhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-hdpi_ic_launcher.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-hdpi/ic_launcher.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_card.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_card.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-xxhdpi/ic_launcher_round.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xhdpi_ic_launcher_round.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-xhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxxhdpi_ic_launcher.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-xxxhdpi/ic_launcher.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_ic_launcher_background.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/ic_launcher_background.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/drawable_ic_launcher_background.xml.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/drawable/ic_launcher_background.xml"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/layout_visitor_list_item_glass.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_glass.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xhdpi_ic_launcher_round.webp.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/mipmap-xhdpi/ic_launcher_round.webp"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_card_panel.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/card_panel.xml"
     },
     {
-        "merged": "com.x2bro4pro.bro4call.app-merged_res-41:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "com.x2bro4pro.bro4call.app-main-43:/drawable/ic_launcher_foreground.xml"
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_input.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_input.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/layout_visitor_list_item_template.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/visitor_list_item_template.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/layout_activity_app_layout_glass.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout_glass.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_button_secondary.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_button_secondary.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xhdpi_ic_launcher.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-xhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxxhdpi_ic_launcher.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-xxxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_bg_glassmorphism.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/bg_glassmorphism.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_button_success.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_button_success.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-hdpi_ic_launcher.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-hdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/layout_activity_app_layout.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/drawable_glass_button_primary.xml.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/drawable/glass_button_primary.xml"
+    },
+    {
+        "merged": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-merged_res-41:/mipmap-xxhdpi_ic_launcher.webp.flat",
+        "source": "/home/codespace/.gradle/daemon/8.6/com.x2bro4pro.bro4call.app-main-43:/mipmap-xxhdpi/ic_launcher.webp"
     }
 ]

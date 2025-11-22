@@ -106,18 +106,31 @@ class CallService : Service(), SignalingListener {
         Log.d(TAG, "Task removed (app swiped away), restarting service...")
         
         // Restart service wenn App aus Recent Apps entfernt wurde
-        if (currentRoomId != null && currentToken != null) {
+        val savedRoomId = currentRoomId
+        val savedToken = currentToken
+        
+        if (savedRoomId != null && savedToken != null) {
             val restartIntent = Intent(applicationContext, CallService::class.java).apply {
                 action = ACTION_START_SERVICE
-                putExtra(EXTRA_ROOM_ID, currentRoomId)
-                putExtra(EXTRA_TOKEN, currentToken)
+                putExtra(EXTRA_ROOM_ID, savedRoomId)
+                putExtra(EXTRA_TOKEN, savedToken)
             }
             
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                applicationContext.startForegroundService(restartIntent)
-            } else {
-                applicationContext.startService(restartIntent)
-            }
+            // 3 Sekunden Delay um Boot-Loops zu vermeiden
+            // WeakReference um Memory Leak zu vermeiden
+            val appContext = applicationContext
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        appContext.startForegroundService(restartIntent)
+                    } else {
+                        appContext.startService(restartIntent)
+                    }
+                    Log.d(TAG, "Service restart scheduled successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to restart service", e)
+                }
+            }, 3000)
         }
     }
     
