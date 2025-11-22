@@ -13,11 +13,14 @@ import java.io.IOException
 
 class AuthClient(private val context: Context, private val backendBaseUrl: String) {
     companion object {
+        private const val MAX_RETRIES = 3
+        
         private val client by lazy {
             OkHttpClient.Builder()
                 .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
                 .build()
         }
         
@@ -187,7 +190,37 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
         prefs.edit().putString(KEY_DOMAINS, JSONObject().put("domains", domains).toString()).apply()
     }
 
-    fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
+    fun getToken(): String? {
+        val token = prefs.getString(KEY_TOKEN, null)
+        return if (token != null && !isTokenExpired(token)) {
+            token
+        } else {
+            if (token != null) {
+                Log.w("AuthClient", "Token expired, clearing")
+                clearToken()
+            }
+            null
+        }
+    }
+    
+    private fun isTokenExpired(token: String): Boolean {
+        return try {
+            val parts = token.split(".")
+            if (parts.size != 3) return true
+            
+            val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP))
+            val json = JSONObject(payload)
+            val exp = json.optLong("exp", 0)
+            
+            if (exp == 0L) return false // Kein Expiry-Claim
+            
+            val now = System.currentTimeMillis() / 1000
+            exp < now
+        } catch (e: Exception) {
+            Log.e("AuthClient", "Failed to parse JWT: ${e.message}")
+            true // Bei Parsing-Error als expired behandeln
+        }
+    }
     
     fun clearToken() {
         prefs.edit()

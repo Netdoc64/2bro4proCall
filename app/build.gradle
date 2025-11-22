@@ -14,6 +14,25 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        
+        // Performance-Optimierungen
+        vectorDrawables.useSupportLibrary = true
+    }
+    
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // Deaktiviere Debugging
+            debuggable false
+            jniDebuggable false
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
     }
 
     compileOptions {

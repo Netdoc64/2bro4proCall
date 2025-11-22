@@ -27,6 +27,8 @@ class CallService : Service(), SignalingListener {
         const val EXTRA_TOKEN = "token"
         
         private const val TAG = "CallService"
+        private const val SERVICE_RESTART_DELAY_MS = 3000L
+        private const val THREAD_JOIN_TIMEOUT_MS = 2000L
     }
     
     private val binder = CallServiceBinder()
@@ -116,7 +118,7 @@ class CallService : Service(), SignalingListener {
                 putExtra(EXTRA_TOKEN, savedToken)
             }
             
-            // 3 Sekunden Delay um Boot-Loops zu vermeiden
+            // Delay um Boot-Loops zu vermeiden
             // WeakReference um Memory Leak zu vermeiden
             val appContext = applicationContext
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -126,11 +128,11 @@ class CallService : Service(), SignalingListener {
                     } else {
                         appContext.startService(restartIntent)
                     }
-                    Log.d(TAG, "Service restart scheduled successfully")
+                    Log.d(TAG, "Service restarted after task removal")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to restart service", e)
                 }
-            }, 3000)
+            }, SERVICE_RESTART_DELAY_MS)
         }
     }
     

@@ -25,6 +25,11 @@ class BootReceiver : BroadcastReceiver() {
                 val authClient = AuthClient(context, "https://call-server.netdoc64.workers.dev")
                 val savedToken = authClient.getToken()
                 
+                if (savedToken == null) {
+                    Log.d(TAG, "No valid token found, skipping auto-start")
+                    return
+                }
+                
                 if (savedToken != null) {
                     // Try to load saved room ID first to maintain context
                     var roomId = authClient.getRoomId()
@@ -55,8 +60,12 @@ class BootReceiver : BroadcastReceiver() {
                 } else {
                     Log.d(TAG, "No saved credentials, skipping service start")
                 }
+                } catch (e: SecurityException) {
+                Log.e(TAG, "Permission denied for service start after boot", e)
+            } catch (e: IllegalStateException) {
+                Log.e(TAG, "Service cannot be started in current state", e)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to start service after boot", e)
+                Log.e(TAG, "Unexpected error starting service after boot", e)
             }
         }
     }

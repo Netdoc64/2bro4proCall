@@ -34,8 +34,24 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     private val MAX_RECONNECT_ATTEMPTS = 8
     private val JITTER_PERCENT = 0.2 // +/- 20%
     private val PING_INTERVAL_MS = 30000L // 30 seconds
-    private var pingThread: Thread? = null
-    private var keepAlive = false
+    private val pingHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val pingRunnable = object : Runnable {
+        override fun run() {
+            try {
+                webSocket?.let { ws ->
+                    val ping = JSONObject().apply {
+                        put("type", "ping")
+                        put("timestamp", System.currentTimeMillis())
+                    }
+                    send(ping)
+                    Log.d("SignalingClient", "Sent heartbeat ping")
+                }
+            } catch (e: Exception) {
+                Log.e("SignalingClient", "Heartbeat error: ${e.message}")
+            }
+            pingHandler.postDelayed(this, PING_INTERVAL_MS)
+        }
+    }
 
     // store last connection params so reconnect can retry automatically
     @Volatile
@@ -119,16 +135,6 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         userInitiatedDisconnect = true
         stopHeartbeat()
         
-        // Warte auf Heartbeat Thread Shutdown (max 2 Sekunden)
-        pingThread?.let { thread ->
-            try {
-                thread.join(2000)
-            } catch (e: InterruptedException) {
-                Log.w("SignalingClient", "Heartbeat thread join interrupted")
-                thread.interrupt()
-            }
-        }
-        
         try {
             webSocket?.close(1000, "App disconnected")
         } finally {
@@ -141,35 +147,11 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     
     private fun startHeartbeat() {
         stopHeartbeat()
-        keepAlive = true
-        pingThread = Thread {
-            while (keepAlive) {
-                try {
-                    Thread.sleep(PING_INTERVAL_MS)
-                    if (keepAlive && webSocket != null) {
-                        val ping = JSONObject().apply {
-                            put("type", "ping")
-                            put("timestamp", System.currentTimeMillis())
-                        }
-                        send(ping)
-                        Log.d("SignalingClient", "Sent heartbeat ping")
-                    }
-                } catch (e: InterruptedException) {
-                    break
-                } catch (e: Exception) {
-                    Log.e("SignalingClient", "Heartbeat error: ${e.message}")
-                }
-            }
-        }.apply {
-            name = "WebSocket-Heartbeat"
-            start()
-        }
+        pingHandler.postDelayed(pingRunnable, PING_INTERVAL_MS)
     }
     
     private fun stopHeartbeat() {
-        keepAlive = false
-        pingThread?.interrupt()
-        pingThread = null
+        pingHandler.removeCallbacks(pingRunnable)
     }
 
     private fun sendIdentifyPacket() {
@@ -190,6 +172,8 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         send(identify)
     }
 
+    private val reconnectHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    
     private fun scheduleReconnectIfNeeded() {
         if (reconnecting) return
         // If we don't have connection params (room/token) or token is blank,
@@ -209,11 +193,7 @@ class SignalingClient(private val listener: SignalingListener, private val backe
             reconnectAttempts = MAX_RECONNECT_ATTEMPTS - 2 // Reset zu mittlerem Backoff
             listener.onReconnecting(reconnectAttempts, 120000) // 2 Minuten
             
-            Thread {
-                try {
-                    Thread.sleep(120000) // 2 Minuten warten
-                } catch (e: InterruptedException) {
-                }
+            reconnectHandler.postDelayed({
                 val room = lastRoomId
                 val token = lastToken
                 if (!userInitiatedDisconnect && room != null && token != null) {
@@ -225,7 +205,7 @@ class SignalingClient(private val listener: SignalingListener, private val backe
                     }
                 }
                 reconnecting = false
-            }.start()
+            }, 120000)
             return
         }
         reconnecting = true
@@ -239,11 +219,7 @@ class SignalingClient(private val listener: SignalingListener, private val backe
         // notify listener about reconnect schedule
         listener.onReconnecting(reconnectAttempts, delayMs)
 
-        Thread {
-            try {
-                Thread.sleep(delayMs.toLong())
-            } catch (e: InterruptedException) {
-            }
+        reconnectHandler.postDelayed({
             // only reconnect if we have stored params and the user didn't explicitly disconnect
             val room = lastRoomId
             val token = lastToken
@@ -256,7 +232,7 @@ class SignalingClient(private val listener: SignalingListener, private val backe
                 }
             }
             reconnecting = false
-        }.start()
+        }, delayMs.toLong())
     }
 
     private fun calculateBackoffMs(attempts: Int): Int {

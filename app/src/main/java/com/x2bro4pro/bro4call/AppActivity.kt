@@ -100,6 +100,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // Backend host (ohne scheme), aus Spezifikation
     private val BACKEND_HOST = "call-server.netdoc64.workers.dev"
     
+    // Input-Sanitization für XSS-Prevention
+    private fun sanitizeInput(input: String): String {
+        return input.replace(Regex("[<>&\"']"), "")
+            .trim()
+            .take(200) // Max 200 Zeichen
+    }
+    
     // Für dynamische CallRoom-IDs: DOMAIN_ID__SESSION_ID
     private fun generateCallRoomId(domainId: String = DOMAIN_ID): String {
         val sessionId = java.util.UUID.randomUUID().toString()
@@ -384,7 +391,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setTitle("Agent Login")
             .setView(layout)
             .setPositiveButton("Login") { dlg, _ ->
-                val email = emailInput.text.toString()
+                val email = sanitizeInput(emailInput.text.toString())
                 val pass = passInput.text.toString()
                 if (email.isBlank() || pass.isBlank()) {
                     Toast.makeText(this, "Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
@@ -467,8 +474,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setTitle("Agent Registrierung")
             .setView(layout)
             .setPositiveButton("Registrieren") { dlg, _ ->
-                val name = nameInput.text.toString().takeIf { it.isNotBlank() }
-                val email = emailInput.text.toString()
+                val name = sanitizeInput(nameInput.text.toString()).takeIf { it.isNotBlank() }
+                val email = sanitizeInput(emailInput.text.toString())
                 val pass = passInput.text.toString()
                 if (email.isBlank() || pass.isBlank()) {
                     Toast.makeText(this, "Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
@@ -1603,8 +1610,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
         
         fun handleAnswer(sdpJson: JSONObject) {
+            val pc = peerConnection
+            if (pc == null) {
+                Log.e("PeerConnectionClient", "Cannot handle answer: PeerConnection is null")
+                return
+            }
+            
             val answer = SessionDescription(SessionDescription.Type.ANSWER, sdpJson.getString("sdp"))
-            peerConnection?.setRemoteDescription(object : SdpObserver {
+            pc.setRemoteDescription(object : SdpObserver {
                 override fun onCreateSuccess(sdp: SessionDescription) {}
                 override fun onSetSuccess() {}
                 override fun onCreateFailure(error: String) {}
@@ -1613,12 +1626,18 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
 
         fun handleIceCandidate(candidateJson: JSONObject) {
+            val pc = peerConnection
+            if (pc == null) {
+                Log.e("PeerConnectionClient", "Cannot add ICE candidate: PeerConnection is null")
+                return
+            }
+            
             val candidate = IceCandidate(
                 candidateJson.getString("sdpMid"),
                 candidateJson.getInt("sdpMLineIndex"),
                 candidateJson.getString("candidate")
             )
-            peerConnection?.addIceCandidate(candidate)
+            pc.addIceCandidate(candidate)
         }
 
         fun close() {

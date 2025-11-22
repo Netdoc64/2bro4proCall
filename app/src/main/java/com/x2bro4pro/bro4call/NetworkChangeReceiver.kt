@@ -18,7 +18,7 @@ class NetworkChangeReceiver : BroadcastReceiver() {
         private const val TAG = "NetworkChangeReceiver"
         private var lastNetworkAvailable = false
         private var lastReconnectTime = 0L
-        private const val RECONNECT_DEBOUNCE_MS = 5000L // 5 Sekunden
+        private const val RECONNECT_DEBOUNCE_MS = 10000L // 10 Sekunden für bessere Stabilität
         private var lastTransportType: Int? = null  // Track WiFi vs Mobile
     }
     
