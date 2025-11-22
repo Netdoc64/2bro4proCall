@@ -374,8 +374,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             // Zeige Admin/Supervisor Buttons basierend auf Rolle
                             updateRoleBasedUI(role)
                             
-                            // FCM Token an Backend senden
-                            sendFcmTokenToBackend()
+                            // FCM Token an Backend senden (deaktiviert wegen TOO_MANY_REGISTRATIONS)
+                            // sendFcmTokenToBackend()
                             
                             // connect to first domain or show selection
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
