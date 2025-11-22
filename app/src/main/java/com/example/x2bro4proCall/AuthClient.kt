@@ -18,6 +18,7 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
     companion object {
         private const val PREF_FILE = "secure_prefs"
         private const val KEY_TOKEN = "jwt_token"
+        private const val KEY_ROLE = "jwt_role"
         private const val KEY_DOMAINS = "jwt_domains"
     }
 
@@ -178,6 +179,14 @@ class AuthClient(private val context: Context, private val baseUrl: String) {
     }
 
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
+    
+    fun clearToken() {
+        prefs.edit()
+            .remove(KEY_TOKEN)
+            .remove(KEY_ROLE)
+            .remove(KEY_DOMAINS)
+            .apply()
+    }
 
     fun getDomains(): List<String> {
         val text = prefs.getString(KEY_DOMAINS, null) ?: return emptyList()

@@ -55,7 +55,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // UI Elemente (Angenommen, sie wurden in activity_app_layout.xml hinzugefügt)
     private lateinit var statusTextView: TextView
     private lateinit var liveVisitorsRecyclerView: RecyclerView
-    private lateinit var connectButton: Button 
+    private lateinit var connectButton: Button
+    private lateinit var loginButton: Button
+    private lateinit var registerButton: Button
+    private lateinit var adminButton: Button
+    private lateinit var supervisorButton: Button
     private lateinit var activeCallLayout: View 
     private lateinit var callEndButton: Button 
     private lateinit var activeCallInfo: TextView
@@ -85,8 +89,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private val BACKEND_HOST = "call-server.netdoc64.workers.dev"
     
     // Für dynamische CallRoom-IDs: DOMAIN_ID__SESSION_ID
-    private fun generateCallRoomId(sessionId: String): String {
-        return "${DOMAIN_ID}__${sessionId}"
+    private fun generateCallRoomId(domainId: String = DOMAIN_ID): String {
+        val sessionId = java.util.UUID.randomUUID().toString()
+        return "${domainId}__${sessionId}"
     }
     private lateinit var authClient: AuthClient
 
@@ -127,10 +132,10 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         connectButton = findViewById(R.id.connect_button)
         // Start disabled until clients are initialized and permission granted
         connectButton.isEnabled = false
-        val loginButton: Button = findViewById(R.id.login_button)
-        val registerButton: Button = findViewById(R.id.register_button)
-        val adminButton: Button = findViewById(R.id.admin_button)
-        val supervisorButton: Button = findViewById(R.id.supervisor_button)
+        loginButton = findViewById(R.id.login_button)
+        registerButton = findViewById(R.id.register_button)
+        adminButton = findViewById(R.id.admin_button)
+        supervisorButton = findViewById(R.id.supervisor_button)
         liveVisitorsRecyclerView = findViewById(R.id.live_visitors_recycler) 
         activeCallLayout = findViewById(R.id.active_call_layout)
         callEndButton = findViewById(R.id.call_end_button)
@@ -144,6 +149,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         registerButton.setOnClickListener { performRegisterUI() }
         adminButton.setOnClickListener { openAdminPanel() }
         supervisorButton.setOnClickListener { openSupervisorPanel() }
+        connectButton.setOnClickListener { performManualReconnect() }
         
         // Admin/Supervisor Buttons initial versteckt
         adminButton.visibility = View.GONE
@@ -157,28 +163,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // 3. Event Listener
         callEndButton.setOnClickListener { endCall() }
         chatSendButton.setOnClickListener { sendChatMessage() }
-        connectButton.setOnClickListener {
-            // Guard against using clients before initialization
-            if (!::authClient.isInitialized) {
-                Toast.makeText(this, "Bitte warte auf Berechtigungen / Initialisierung", Toast.LENGTH_SHORT).show()
-                performLoginUI()
-                return@setOnClickListener
-            }
-            // manual reconnect / connect using known domain
-            val token = currentToken ?: authClient.getToken()
-            val room = currentRoom ?: DOMAIN_ID
-            if (token != null) {
-                statusTextView.text = "Status: Manueller Verbindungsaufbau..."
-                signalingClient.connect(room, token)
-                currentRoom = room
-                currentToken = token
-                // show progress bar while connecting
-                findViewById<ProgressBar>(R.id.reconnect_progress).visibility = View.VISIBLE
-                connectButton.isEnabled = false
-            } else {
-                performLoginUI()
-            }
-        }
+        
+        // Manual reconnect wird über separate Funktion gehandled (siehe connectButton.setOnClickListener oben)
 
         // 4. Ensure audio permission before initializing WebRTC and network clients
         ensureAudioPermissionThenInit()
@@ -250,9 +236,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         if (savedToken != null) {
             val domains = authClient.getDomains()
             val domain = domains.firstOrNull() ?: DOMAIN_ID
-            currentRoom = domain
+            // Generiere vollständige Room-ID mit Session
+            val roomId = generateCallRoomId(domain)
+            currentRoom = roomId
             currentToken = savedToken
-            signalingClient.connect(domain, savedToken)
+            signalingClient.connect(roomId, savedToken)
         } else {
             // prompt login
             performLoginUI()
@@ -317,8 +305,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             
                             // connect to first domain or show selection
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
-                                currentRoom = DOMAIN_ID
-                                signalingClient.connect(DOMAIN_ID, token)
+                                val roomId = generateCallRoomId(DOMAIN_ID)
+                                currentRoom = roomId
+                                signalingClient.connect(roomId, token)
                             }
                         }
                     }
@@ -389,8 +378,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             currentRole = role
                             updateRoleBasedUI(role)
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
-                                currentRoom = DOMAIN_ID
-                                signalingClient.connect(DOMAIN_ID, token)
+                                val roomId = generateCallRoomId(DOMAIN_ID)
+                                currentRoom = roomId
+                                signalingClient.connect(roomId, token)
                             }
                         }
                     }
@@ -430,10 +420,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 .setTitle("Wähle Domain")
                 .setItems(arr) { _, which ->
                     val domain = arr[which]
+                    val roomId = generateCallRoomId(domain)
                     statusTextView.text = "Status: Verbinde zu $domain"
-                    currentRoom = domain
+                    currentRoom = roomId
                     currentToken = token
-                    signalingClient.connect(domain, token)
+                    signalingClient.connect(roomId, token)
                 }
                 .setCancelable(true)
                 .show()
@@ -444,20 +435,24 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private fun showVisitorsTab() {
         liveVisitorsRecyclerView.visibility = View.VISIBLE
         activeCallLayout.visibility = View.GONE
-        connectButton.visibility = View.VISIBLE
+        // Reconnect nur anzeigen wenn nicht verbunden
+        updateConnectionUI(isConnected = false)
     }
     
     private fun showActiveCallTab(visitor: Visitor) {
         liveVisitorsRecyclerView.visibility = View.GONE
         activeCallLayout.visibility = View.VISIBLE
-        connectButton.visibility = View.GONE
+        updateConnectionUI(isConnected = true)
         activeCallInfo.text = "Im Gespräch mit ${visitor.callerName} von ${visitor.domain}"
     }
 
     // --- Signaling Listener Implementierung ---
 
     override fun onWebSocketOpen() {
-        runOnUiThread { statusTextView.text = "Status: Online und bereit (Domain: $DOMAIN_ID)" }
+        runOnUiThread { 
+            statusTextView.text = "Status: ✅ Verbunden"
+            updateConnectionUI(isConnected = true)
+        }
     }
 
     override fun onReconnecting(attempt: Int, delayMs: Int) {
@@ -465,7 +460,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             statusTextView.text = "Status: Verbindung verloren — reconnect Versuch $attempt in ${delayMs}ms"
             val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
             pb.visibility = View.VISIBLE
-            connectButton.isEnabled = false
+            updateConnectionUI(isConnected = false)
         }
     }
 
@@ -474,13 +469,16 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             statusTextView.text = "Status: Verbindung konnte nicht wiederhergestellt werden"
             val pb = findViewById<ProgressBar>(R.id.reconnect_progress)
             pb.visibility = View.GONE
-            connectButton.isEnabled = true
+            updateConnectionUI(isConnected = false)
             Toast.makeText(this, "Automatischer Reconnect fehlgeschlagen", Toast.LENGTH_LONG).show()
         }
     }
 
     override fun onWebSocketClosed() {
-        runOnUiThread { statusTextView.text = "Status: Getrennt (Versuche Reconnect...)" }
+        runOnUiThread { 
+            statusTextView.text = "Status: Getrennt (Versuche Reconnect...)"
+            updateConnectionUI(isConnected = false)
+        }
     }
 
     override fun onError(message: String) {
@@ -656,9 +654,6 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // --- Admin/Supervisor Funktionen ---
     
     private fun updateRoleBasedUI(role: String?) {
-        val adminButton: Button = findViewById(R.id.admin_button)
-        val supervisorButton: Button = findViewById(R.id.supervisor_button)
-        
         when (role) {
             "superadmin" -> {
                 adminButton.visibility = View.VISIBLE
@@ -671,6 +666,82 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             else -> {
                 adminButton.visibility = View.GONE
                 supervisorButton.visibility = View.GONE
+            }
+        }
+        // Nach Login: Login/Register ausblenden
+        updateAuthUI(isLoggedIn = true)
+    }
+    
+    private fun updateAuthUI(isLoggedIn: Boolean) {
+        if (isLoggedIn) {
+            loginButton.visibility = View.GONE
+            registerButton.visibility = View.GONE
+            // Logout-Button als Text in connect_button anzeigen
+            connectButton.text = "Logout"
+            connectButton.isEnabled = true
+            connectButton.setOnClickListener { performLogout() }
+        } else {
+            loginButton.visibility = View.VISIBLE
+            registerButton.visibility = View.VISIBLE
+            connectButton.text = "🔄 Manueller Reconnect"
+            connectButton.setOnClickListener { performManualReconnect() }
+        }
+    }
+    
+    private fun performManualReconnect() {
+        if (!::authClient.isInitialized) {
+            Toast.makeText(this, "Bitte warte auf Berechtigungen / Initialisierung", Toast.LENGTH_SHORT).show()
+            performLoginUI()
+            return
+        }
+        val token = currentToken ?: authClient.getToken()
+        val room = currentRoom ?: run {
+            val domains = authClient.getDomains()
+            val domain = domains.firstOrNull() ?: DOMAIN_ID
+            generateCallRoomId(domain)
+        }
+        if (token != null) {
+            statusTextView.text = "Status: Manueller Verbindungsaufbau..."
+            signalingClient.connect(room, token)
+            currentRoom = room
+            currentToken = token
+            findViewById<ProgressBar>(R.id.reconnect_progress).visibility = View.VISIBLE
+            connectButton.visibility = View.GONE
+        } else {
+            performLoginUI()
+        }
+    }
+    
+    private fun performLogout() {
+        AlertDialog.Builder(this)
+            .setTitle("Logout")
+            .setMessage("Möchten Sie sich wirklich abmelden?")
+            .setPositiveButton("Ja") { _, _ ->
+                signalingClient.disconnect()
+                authClient.clearToken()
+                currentToken = null
+                currentRoom = null
+                currentRole = null
+                updateAuthUI(isLoggedIn = false)
+                updateRoleBasedUI(null)
+                statusTextView.text = "Status: Abgemeldet"
+                Toast.makeText(this, "Erfolgreich abgemeldet", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Nein", null)
+            .show()
+    }
+    
+    private fun updateConnectionUI(isConnected: Boolean) {
+        if (isConnected) {
+            connectButton.visibility = View.GONE
+            findViewById<ProgressBar>(R.id.reconnect_progress).visibility = View.GONE
+        } else {
+            // Nur anzeigen wenn eingeloggt
+            if (currentToken != null) {
+                connectButton.visibility = View.VISIBLE
+                connectButton.text = "🔄 Reconnect"
+                connectButton.isEnabled = true
+                connectButton.setOnClickListener { performManualReconnect() }
             }
         }
     }
