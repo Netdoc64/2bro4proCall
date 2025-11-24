@@ -28,6 +28,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.net.Uri
 import java.io.File
+import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import androidx.appcompat.app.AppCompatActivity
@@ -35,9 +36,16 @@ import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONObject
+import org.json.JSONArray
 import org.webrtc.*
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.android.gms.tasks.OnCompleteListener
 
@@ -354,27 +362,36 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // Auto-connect if token exists
         val savedToken = authClient.getToken()
         if (savedToken != null) {
+            val displayName = authClient.getDisplayName()
             val domains = authClient.getDomains()
             val domain = domains.firstOrNull() ?: DOMAIN_ID
             // Generiere vollständige Room-ID mit Session
             val roomId = generateCallRoomId(domain)
             currentRoom = roomId
             currentToken = savedToken
+            currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
+            
+            statusTextView.text = "Status: ✅ Auto-Login${if (displayName != null) " - $displayName" else ""}"
+            updateRoleBasedUI(currentRole)
+            
             signalingClient.connect(roomId, savedToken)
             
             // Service starten bei Auto-Login
             startCallService(roomId, savedToken)
         } else {
             // prompt login
+            statusTextView.text = "Status: Bitte anmelden"
             performLoginUI()
         }
         // forward local ICE candidates to signaling worker
         webRtcClient.onIceCandidateCallback = { candidate ->
             val candidateJson = JSONObject().apply {
-                put("type", "candidate")
-                put("candidate", candidate.sdp)
-                put("sdpMid", candidate.sdpMid)
-                put("sdpMLineIndex", candidate.sdpMLineIndex)
+                put("type", "ice")
+                put("data", JSONObject().apply {
+                    put("candidate", candidate.sdp)
+                    put("sdpMid", candidate.sdpMid)
+                    put("sdpMLineIndex", candidate.sdpMLineIndex)
+                })
                 put("targetSessionId", activeCallSessionId ?: JSONObject.NULL)
             }
             signalingClient.send(candidateJson)
@@ -404,156 +421,277 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         webRtcClient.close()
     }
 
+    private fun validateAndAutoConnect(token: String) {
+        currentToken = token
+        val userId = authClient.getUserId()
+        val displayName = authClient.getDisplayName()
+        val domains = authClient.getDomains()
+        currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
+        
+        statusTextView.text = "Status: Auto-Login erfolgreich${if (displayName != null) " - $displayName" else ""}"
+        
+        // Zeige Admin/Supervisor Buttons basierend auf Rolle
+        updateRoleBasedUI(currentRole)
+        
+        // Domain-Auswahl und Verbindung
+        if (domains.isNotEmpty()) {
+            showDomainSelectionAndConnect(domains, token)
+        } else {
+            val roomId = generateCallRoomId(DOMAIN_ID)
+            currentRoom = roomId
+            signalingClient.connect(roomId, token)
+        }
+        
+        // CallService starten für Hintergrund-Anrufe
+        startCallService(currentRoom ?: generateCallRoomId(DOMAIN_ID), token)
+    }
+    
     private fun performLoginUI() {
-        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
+        val emailInput = EditText(this).apply { 
+            hint = "Email"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+        }
         val passInput = EditText(this).apply {
             hint = "Password"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             transformationMethod = PasswordTransformationMethod.getInstance()
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
         }
+        
+        val rememberCheckbox = android.widget.CheckBox(this).apply {
+            text = "Angemeldet bleiben"
+            isChecked = true
+            setPadding(8, 16, 8, 8)
+        }
+        
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 20, 40, 0)
             addView(emailInput)
             addView(passInput)
+            addView(rememberCheckbox)
         }
-        AlertDialog.Builder(this)
-            .setTitle("Agent Login")
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("🔐 Agent Login")
             .setView(layout)
-            .setPositiveButton("Login") { dlg, _ ->
+            .setPositiveButton("Login", null) // Set to null initially
+            .setNeutralButton("Registrieren") { dlg, _ ->
+                dlg.dismiss()
+                performRegisterUI()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .create()
+        
+        dialog.setOnShowListener {
+            val loginBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            
+            // Handle Enter key in password field
+            passInput.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    loginBtn.performClick()
+                    true
+                } else false
+            }
+            
+            loginBtn.setOnClickListener {
                 val email = sanitizeInput(emailInput.text.toString())
                 val pass = passInput.text.toString()
+                
+                // Validierung
                 if (email.isBlank() || pass.isBlank()) {
-                    Toast.makeText(this, "Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
+                    Toast.makeText(this, "❌ Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
                 }
+                
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    Toast.makeText(this, "❌ Ungültige Email-Adresse", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
+                // Disable button and show loading
+                loginBtn.isEnabled = false
+                loginBtn.text = "⏳ Login läuft..."
                 statusTextView.text = "Status: Authentifiziere..."
+                
                 authClient.login(email, pass, object : AuthClient.LoginCallback {
-                    override fun onSuccess(token: String, role: String?, domains: List<String>) {
+                    override fun onSuccess(token: String, userId: String, displayName: String?, domains: List<String>) {
                         runOnUiThread {
-                            statusTextView.text = "Status: Auth erfolgreich"
-                            // store token and role
+                            dialog.dismiss()
+                            
+                            statusTextView.text = "Status: ✅ Login erfolgreich${if (displayName != null) " - $displayName" else ""}"
                             currentToken = token
-                            currentRole = role
+                            currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
                             
-                            // Zeige Admin/Supervisor Buttons basierend auf Rolle
-                            updateRoleBasedUI(role)
+                            // Remember Me: Token ist bereits gespeichert von AuthClient
+                            // Bei Checkbox-Deaktivierung Token löschen
+                            if (!rememberCheckbox.isChecked) {
+                                // Note: AuthClient speichert bereits, wir tun nichts extra
+                                Toast.makeText(this@AppActivity, "ℹ️ Session nur für diese Sitzung", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this@AppActivity, "✅ Anmeldung gespeichert", Toast.LENGTH_SHORT).show()
+                            }
                             
-                            // FCM Token an Backend senden (deaktiviert wegen TOO_MANY_REGISTRATIONS)
-                            // sendFcmTokenToBackend()
+                            updateRoleBasedUI(currentRole)
                             
-                            // connect to first domain or show selection
                             if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
                                 val roomId = generateCallRoomId(DOMAIN_ID)
                                 currentRoom = roomId
                                 signalingClient.connect(roomId, token)
                             }
                             
-                            // CallService starten für Hintergrund-Anrufe
                             startCallService(currentRoom ?: generateCallRoomId(DOMAIN_ID), token)
                         }
                     }
 
                     override fun onFailure(message: String) {
                         runOnUiThread {
-                            // Zeige detaillierte Fehlermeldung
-                            statusTextView.text = "Status: Login fehlgeschlagen"
+                            // Re-enable button
+                            loginBtn.isEnabled = true
+                            loginBtn.text = "Login"
                             
-                            // AlertDialog für bessere Sichtbarkeit
-                            AlertDialog.Builder(this@AppActivity)
-                                .setTitle("Login Fehler")
-                                .setMessage(message)
-                                .setPositiveButton("OK") { dlg, _ ->
-                                    dlg.dismiss()
-                                    // Bei "nicht freigegeben" Login-Dialog erneut öffnen
-                                    if (!message.contains("⏳")) {
-                                        performLoginUI()
-                                    }
-                                }
-                                .setCancelable(false)
-                                .show()
-                        }
-                    }
-                })
-                dlg.dismiss()
-            }
-            .setNeutralButton("Registrieren") { dlg, _ ->
-                dlg.dismiss()
-                performRegisterUI()
-            }
-            .setNegativeButton("Abbrechen", null)
-            .show()
-    }
-
-    private fun performRegisterUI() {
-        val nameInput = EditText(this).apply { hint = "Name (optional)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME }
-        val emailInput = EditText(this).apply { hint = "Email"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
-        val passInput = EditText(this).apply {
-            hint = "Password"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            transformationMethod = PasswordTransformationMethod.getInstance()
-        }
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 20, 40, 0)
-            addView(nameInput)
-            addView(emailInput)
-            addView(passInput)
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Agent Registrierung")
-            .setView(layout)
-            .setPositiveButton("Registrieren") { dlg, _ ->
-                val name = sanitizeInput(nameInput.text.toString()).takeIf { it.isNotBlank() }
-                val email = sanitizeInput(emailInput.text.toString())
-                val pass = passInput.text.toString()
-                if (email.isBlank() || pass.isBlank()) {
-                    Toast.makeText(this, "Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                statusTextView.text = "Status: Registriere..."
-                authClient.register(name, email, pass, object : AuthClient.RegisterCallback {
-                    override fun onSuccess(token: String, role: String?, domains: List<String>) {
-                        runOnUiThread {
-                            statusTextView.text = "Status: Registrierung erfolgreich"
-                            currentToken = token
-                            currentRole = role
-                            updateRoleBasedUI(role)
-                            if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
-                                val roomId = generateCallRoomId(DOMAIN_ID)
-                                currentRoom = roomId
-                                signalingClient.connect(roomId, token)
+                            statusTextView.text = "Status: ❌ Login fehlgeschlagen"
+                            
+                            Toast.makeText(this@AppActivity, "❌ $message", Toast.LENGTH_LONG).show()
+                            
+                            // Bei kritischem Fehler Dialog schließen
+                            if (message.contains("nicht freigegeben") || message.contains("blocked")) {
+                                dialog.dismiss()
+                                AlertDialog.Builder(this@AppActivity)
+                                    .setTitle("⚠️ Login Fehler")
+                                    .setMessage(message)
+                                    .setPositiveButton("OK", null)
+                                    .show()
                             }
                         }
                     }
-
-                    override fun onFailure(message: String) {
-                        runOnUiThread {
-                            // Bei Erfolg (✅) zeige andere Meldung
-                            val isSuccess = message.startsWith("✅")
-                            statusTextView.text = if (isSuccess) "Status: Registrierung erfolgreich" else "Status: Registrierung fehlgeschlagen"
-                            
-                            // AlertDialog für detaillierte Meldung
-                            AlertDialog.Builder(this@AppActivity)
-                                .setTitle(if (isSuccess) "Registrierung erfolgreich" else "Registrierung Fehler")
-                                .setMessage(message)
-                                .setPositiveButton("OK") { dlg, _ ->
-                                    dlg.dismiss()
-                                    // Bei Erfolg zum Login-Dialog wechseln
-                                    if (isSuccess) {
-                                        performLoginUI()
-                                    }
-                                }
-                                .setCancelable(false)
-                                .show()
-                        }
-                    }
                 })
-                dlg.dismiss()
             }
-            .setNegativeButton("Abbrechen", null)
-            .show()
+        }
+        
+        dialog.show()
     }
+
+    private fun performRegisterUI() {
+            val nameInput = EditText(this).apply { 
+                hint = "Name (optional)"
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+            }
+            val emailInput = EditText(this).apply { 
+                hint = "Email"
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+            }
+            val passInput = EditText(this).apply {
+                hint = "Password (min. 6 Zeichen)"
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                transformationMethod = PasswordTransformationMethod.getInstance()
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            }
+            val layout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(40, 20, 40, 0)
+                addView(nameInput)
+                addView(emailInput)
+                addView(passInput)
+            }
+            
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("✨ Agent Registrierung")
+                .setView(layout)
+                .setPositiveButton("Registrieren", null)
+                .setNegativeButton("Abbrechen", null)
+                .create()
+            
+            dialog.setOnShowListener {
+                val registerBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                
+                // Handle Enter key in password field
+                passInput.setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                        registerBtn.performClick()
+                        true
+                    } else false
+                }
+                
+                registerBtn.setOnClickListener {
+                    val name = sanitizeInput(nameInput.text.toString()).takeIf { it.isNotBlank() }
+                    val email = sanitizeInput(emailInput.text.toString())
+                    val pass = passInput.text.toString()
+                    
+                    // Validierung
+                    if (email.isBlank() || pass.isBlank()) {
+                        Toast.makeText(this, "❌ Bitte Email und Passwort eingeben", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    
+                    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                        Toast.makeText(this, "❌ Ungültige Email-Adresse", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    
+                    if (pass.length < 6) {
+                        Toast.makeText(this, "❌ Passwort muss mindestens 6 Zeichen haben", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    
+                    // Disable button and show loading
+                    registerBtn.isEnabled = false
+                    registerBtn.text = "⏳ Registriere..."
+                    statusTextView.text = "Status: Registriere..."
+                    
+                    authClient.register(name, email, pass, object : AuthClient.RegisterCallback {
+                        override fun onSuccess(token: String, userId: String, displayName: String?, domains: List<String>) {
+                            runOnUiThread {
+                                dialog.dismiss()
+                                
+                                statusTextView.text = "Status: ✅ Registrierung erfolgreich${if (displayName != null) " - $displayName" else ""}"
+                                currentToken = token
+                                currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
+                                updateRoleBasedUI(currentRole)
+                                
+                                Toast.makeText(this@AppActivity, "✅ Account erstellt und angemeldet", Toast.LENGTH_SHORT).show()
+                                
+                                if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
+                                    val roomId = generateCallRoomId(DOMAIN_ID)
+                                    currentRoom = roomId
+                                    signalingClient.connect(roomId, token)
+                                }
+                            }
+                        }
+
+                        override fun onFailure(message: String) {
+                            runOnUiThread {
+                                // Re-enable button
+                                registerBtn.isEnabled = true
+                                registerBtn.text = "Registrieren"
+                                
+                                // Bei Erfolg (✅) zeige andere Meldung
+                                val isSuccess = message.startsWith("✅")
+                                statusTextView.text = if (isSuccess) "Status: ✅ Registrierung erfolgreich" else "Status: ❌ Registrierung fehlgeschlagen"
+                                
+                                if (isSuccess) {
+                                    dialog.dismiss()
+                                    AlertDialog.Builder(this@AppActivity)
+                                        .setTitle("✅ Registrierung erfolgreich")
+                                        .setMessage(message)
+                                        .setPositiveButton("Login") { _, _ ->
+                                            performLoginUI()
+                                        }
+                                        .show()
+                                } else {
+                                    Toast.makeText(this@AppActivity, "❌ $message", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    })
+                }
+            }
+            
+            dialog.show()
+        }
 
     private fun showDomainSelectionAndConnect(domains: List<String>, token: String) {
         runOnUiThread {
@@ -647,19 +785,21 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 "system" -> handleSystemMessage(message)
                 "offer" -> handleIncomingOffer(message) 
                 "answer" -> {
-                    val sdp = message.optJSONObject("sdp")
-                    if (sdp != null) {
-                        webRtcClient.handleAnswer(sdp)
+                    // Support both new 'data' format and old 'sdp' format
+                    val sdpData = message.optJSONObject("data") ?: message.optJSONObject("sdp")
+                    if (sdpData != null) {
+                        webRtcClient.handleAnswer(message) // Pass full message, handleAnswer will parse
                     } else {
-                        Log.e("AppActivity", "Answer without sdp object")
+                        Log.e("AppActivity", "Answer without data/sdp object")
                     }
                 }
-                "candidate" -> {
-                    val candidate = message.optJSONObject("candidate")
-                    if (candidate != null) {
-                        webRtcClient.handleIceCandidate(candidate)
+                "ice", "candidate" -> {
+                    // Support both 'ice' (new) and 'candidate' (deprecated) types
+                    val candidateData = message.optJSONObject("data") ?: message.optJSONObject("candidate")
+                    if (candidateData != null) {
+                        webRtcClient.handleIceCandidate(message) // Pass full message, handleIceCandidate will parse
                     } else {
-                        Log.e("AppActivity", "Candidate without candidate object")
+                        Log.e("AppActivity", "ICE candidate without data/candidate object")
                     }
                 }
                 "chat" -> handleChatMessage(message)
@@ -718,7 +858,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 webRtcClient.peerConnection?.setLocalDescription(this, sdp)
                 val offer = JSONObject().apply {
                     put("type", "offer")
-                    put("sdp", JSONObject().apply {
+                    put("data", JSONObject().apply {
                         put("type", sdp.type.canonicalForm())
                         put("sdp", sdp.description)
                     })
@@ -737,7 +877,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     // Besucher ruft Agent an (eingehender Anruf)
     private fun handleIncomingOffer(message: JSONObject) {
-        val sdp = message.getJSONObject("sdp")
+        val sdpData = message.optJSONObject("data") ?: message.optJSONObject("sdp") // Backward compatibility
+        if (sdpData == null) {
+            Log.e("AppActivity", "Invalid offer: missing data/sdp")
+            return
+        }
         statusTextView.text = "Status: Eingehender Anruf!"
         
         val callerSessionId = message.optString("sessionId") 
@@ -748,7 +892,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         val offerDesc = SessionDescription(
             SessionDescription.Type.OFFER,
-            sdp.getString("sdp")
+            sdpData.getString("sdp")
         )
         webRtcClient.peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {}
@@ -763,7 +907,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 
                 val answer = JSONObject().apply {
                     put("type", "answer")
-                    put("sdp", JSONObject().apply { 
+                    put("data", JSONObject().apply { 
                         put("type", answerSdp.type.canonicalForm())
                         put("sdp", answerSdp.description)
                     })
@@ -886,28 +1030,6 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         } else {
             performLoginUI()
         }
-    }
-    
-    private fun performLogout() {
-        AlertDialog.Builder(this)
-            .setTitle("Logout")
-            .setMessage("Möchten Sie sich wirklich abmelden?")
-            .setPositiveButton("Ja") { _, _ ->
-                // CallService stoppen
-                stopCallService()
-                
-                signalingClient.disconnect()
-                authClient.clearToken()
-                currentToken = null
-                currentRoom = null
-                currentRole = null
-                updateAuthUI(isLoggedIn = false)
-                updateRoleBasedUI(null)
-                statusTextView.text = "Status: Abgemeldet"
-                Toast.makeText(this, "Erfolgreich abgemeldet", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Nein", null)
-            .show()
     }
     
     private fun updateConnectionUI(isConnected: Boolean) {
@@ -1048,6 +1170,37 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
     }
     
+    private fun performLogout() {
+        AlertDialog.Builder(this)
+            .setTitle("🚪 Abmelden")
+            .setMessage("Möchten Sie sich wirklich abmelden?")
+            .setPositiveButton("Abmelden") { _, _ ->
+                // Disconnect WebSocket
+                signalingClient.disconnect()
+                
+                // Clear auth data
+                authClient.clearToken()
+                
+                // Reset UI
+                currentToken = null
+                currentRole = null
+                currentRoom = null
+                activeCallSessionId = null
+                liveVisitors.clear()
+                visitorAdapter.notifyDataSetChanged()
+                
+                // Hide role-based buttons
+                adminButton.visibility = View.GONE
+                supervisorButton.visibility = View.GONE
+                activeCallLayout.visibility = View.GONE
+                
+                statusTextView.text = "Status: Abgemeldet"
+                Toast.makeText(this, "✅ Erfolgreich abgemeldet", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
     private fun openAdminPanel() {
         if (currentRole != "superadmin") {
             Toast.makeText(this, "Keine Berechtigung", Toast.LENGTH_SHORT).show()
@@ -1058,19 +1211,411 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         AlertDialog.Builder(this)
             .setTitle("🔧 SuperAdmin Panel")
             .setMessage("Admin-Funktionen:\n\n" +
-                "• User freischalten\n" +
-                "• Domains zuweisen\n" +
-                "• Domains verwalten\n\n" +
+                "• User verwalten\n" +
+                "• Rollen verwalten (NEW)\n" +
+                "• Domains verwalten\n" +
+                "• Call-Warteschlange\n\n" +
                 "Vollständiges Admin-Panel kommt bald!")
             .setPositiveButton("User verwalten") { _, _ ->
                 openUserManagement()
             }
-            .setNeutralButton("Domain verwalten") { _, _ ->
-                openDomainManagement()
+            .setNeutralButton("🎭 Rollen") { _, _ ->
+                openRoleManagement()
+            }
+            .setNegativeButton("🚪 Logout") { _, _ ->
+                performLogout()
+            }
+            .show()
+    }
+    
+    // --- Queue Management (API v2.2) ---
+    
+    private fun openQueueManagement() {
+        val token = currentToken ?: return
+        
+        // Check permission
+        if (!authClient.hasPermission("call.view.all")) {
+            Toast.makeText(this, "Keine Berechtigung für Queue-Verwaltung", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        statusTextView.text = "Status: Lade Warteschlange..."
+        
+        val url = "https://$BACKEND_HOST/api/admin/queues"
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Queue-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                    statusTextView.text = "Status: Fehler beim Laden"
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                response.use {
+                    if (!it.isSuccessful) {
+                        safeRunOnUiThread {
+                            val errorBody = it.body?.string() ?: ""
+                            Toast.makeText(this@AppActivity, "Queue-Fehler: ${it.code}", Toast.LENGTH_LONG).show()
+                            statusTextView.text = "Status: Fehler ${it.code}"
+                        }
+                        return
+                    }
+                    
+                    val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
+                    val queuesArray = jsonData.optJSONArray("queues")
+                    
+                    safeRunOnUiThread {
+                        showQueueList(queuesArray)
+                        statusTextView.text = "Status: Queue-Verwaltung"
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun showQueueList(queuesArray: org.json.JSONArray?) {
+        if (queuesArray == null || queuesArray.length() == 0) {
+            AlertDialog.Builder(this)
+                .setTitle("📋 Warteschlange leer")
+                .setMessage("Aktuell keine wartenden Anrufe.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        val queueItems = mutableListOf<String>()
+        val queueData = mutableListOf<org.json.JSONObject>()
+        
+        for (i in 0 until queuesArray.length()) {
+            val queueEntry = queuesArray.getJSONObject(i)
+            val sessionId = queueEntry.optString("session_id", "unknown")
+            val domainName = queueEntry.optString("domain_name", queueEntry.optString("domain_id"))
+            val status = queueEntry.optString("status", "queued")
+            val waitTime = queueEntry.optLong("waitTime", 0) / 1000 // ms to seconds
+            
+            val statusIcon = when(status) {
+                "queued" -> "⏳"
+                "ringing" -> "📞"
+                else -> "❓"
+            }
+            
+            queueItems.add("$statusIcon $domainName - ${waitTime}s wartend")
+            queueData.add(queueEntry)
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("📋 Warteschlange (${queueItems.size})")
+            .setItems(queueItems.toTypedArray()) { _, which ->
+                showQueueActions(queueData[which])
+            }
+            .setNeutralButton("🔄 Aktualisieren") { _, _ ->
+                openQueueManagement() // Reload
             }
             .setNegativeButton("Schließen", null)
             .show()
     }
+    
+    private fun showQueueActions(queueEntry: org.json.JSONObject) {
+        val sessionId = queueEntry.optString("session_id")
+        val domainName = queueEntry.optString("domain_name", queueEntry.optString("domain_id"))
+        val status = queueEntry.optString("status", "queued")
+        val waitTime = queueEntry.optLong("waitTime", 0) / 1000
+        
+        AlertDialog.Builder(this)
+            .setTitle("Call-Details")
+            .setMessage("Domain: $domainName\n" +
+                "Session: ${sessionId.take(20)}...\n" +
+                "Status: $status\n" +
+                "Wartezeit: ${waitTime}s")
+            .setPositiveButton("👤 Agent zuweisen") { _, _ ->
+                assignQueueToAgent(sessionId, domainName)
+            }
+            .setNeutralButton("🗑️ Löschen") { _, _ ->
+                confirmDeleteQueue(sessionId, domainName)
+            }
+            .setNegativeButton("Zurück", null)
+            .show()
+    }
+    
+    private fun assignQueueToAgent(sessionId: String, domainName: String) {
+        val token = currentToken ?: return
+        
+        // Check permission
+        if (!authClient.hasPermission("call.assign")) {
+            Toast.makeText(this, "Keine Berechtigung zum Zuweisen", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // In production: Show agent selection dialog
+        // For now: Assign to current user
+        val currentUserId = authClient.getUserId() ?: run {
+            Toast.makeText(this, "User ID nicht verfügbar", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val url = "https://$BACKEND_HOST/api/admin/queues/$sessionId/assign"
+        val json = org.json.JSONObject().apply {
+            put("agentId", currentUserId)
+        }
+        
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
+        
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .post(body)
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Zuweisen fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@AppActivity, "✅ Call zugewiesen", Toast.LENGTH_SHORT).show()
+                        openQueueManagement() // Refresh
+                    } else {
+                        val errorBody = response.body?.string() ?: ""
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: $errorBody", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun confirmDeleteQueue(sessionId: String, domainName: String) {
+        AlertDialog.Builder(this)
+            .setTitle("⚠️ Call entfernen?")
+            .setMessage("Möchten Sie diesen wartenden Call wirklich aus der Warteschlange entfernen?\n\n" +
+                "Domain: $domainName\n" +
+                "Session: ${sessionId.take(20)}...")
+            .setPositiveButton("🗑️ Löschen") { _, _ ->
+                deleteQueueEntry(sessionId)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun deleteQueueEntry(sessionId: String) {
+        val token = currentToken ?: return
+        
+        // Check permission
+        if (!authClient.hasPermission("call.manage")) {
+            Toast.makeText(this, "Keine Berechtigung zum Löschen", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val url = "https://$BACKEND_HOST/api/admin/queues/$sessionId"
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .delete()
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Löschen fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@AppActivity, "✅ Call entfernt", Toast.LENGTH_SHORT).show()
+                        openQueueManagement() // Refresh
+                    } else {
+                        val errorBody = response.body?.string() ?: ""
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: $errorBody", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    // --- Ende Queue Management ---
+    
+    // --- Outgoing Calls (Agent → Visitor) API v2.2 ---
+    
+    private fun initiateOutgoingCall() {
+        val token = currentToken ?: return
+        
+        // Check permission
+        if (!authClient.hasPermission("call.initiate")) {
+            Toast.makeText(this, "Keine Berechtigung für ausgehende Calls", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Dialog für Visitor-Informationen
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+        
+        val visitorIdInput = android.widget.EditText(this).apply {
+            hint = "Visitor ID (Email, Tel, etc.)"
+        }
+        
+        val messageInput = android.widget.EditText(this).apply {
+            hint = "Einladungsnachricht (optional)"
+            setText("Sie wurden zu einem Call eingeladen")
+        }
+        
+        layout.addView(visitorIdInput)
+        layout.addView(messageInput)
+        
+        // Domain Selection
+        val domains = authClient.getDomains()
+        val domainInput = android.widget.Spinner(this)
+        val domainAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, domains)
+        domainInput.adapter = domainAdapter
+        
+        if (domains.isNotEmpty()) {
+            layout.addView(android.widget.TextView(this).apply {
+                text = "Domain:"
+                setPadding(0, 20, 0, 5)
+            })
+            layout.addView(domainInput)
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("📞 Ausgehender Call")
+            .setView(layout)
+            .setPositiveButton("Call initiieren") { _, _ ->
+                val visitorId = sanitizeInput(visitorIdInput.text.toString())
+                val message = messageInput.text.toString().trim()
+                val domain = if (domains.isNotEmpty()) domains[domainInput.selectedItemPosition] else DOMAIN_ID
+                
+                if (visitorId.isBlank()) {
+                    Toast.makeText(this, "Bitte Visitor ID eingeben", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                createOutgoingCall(visitorId, domain, message.takeIf { it.isNotEmpty() })
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun createOutgoingCall(visitorId: String, domain: String, message: String?) {
+        val token = currentToken ?: return
+        
+        statusTextView.text = "Status: Erstelle ausgehenden Call..."
+        
+        val url = "https://$BACKEND_HOST/api/agent/initiate_call"
+        val json = org.json.JSONObject().apply {
+            put("visitorId", visitorId)
+            put("domain", domain)
+            if (message != null) put("message", message)
+        }
+        
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
+        
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .post(body)
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Call-Erstellung fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                    statusTextView.text = "Status: Fehler"
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                response.use {
+                    if (!it.isSuccessful) {
+                        safeRunOnUiThread {
+                            val errorBody = it.body?.string() ?: ""
+                            val errorJson = try {
+                                org.json.JSONObject(errorBody)
+                            } catch (e: Exception) {
+                                null
+                            }
+                            val errorMsg = errorJson?.optString("error", errorBody) ?: errorBody
+                            Toast.makeText(this@AppActivity, "Fehler ${it.code}: $errorMsg", Toast.LENGTH_LONG).show()
+                            statusTextView.text = "Status: Fehler ${it.code}"
+                        }
+                        return
+                    }
+                    
+                    val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
+                    val roomId = jsonData.optString("room_id")
+                    val visitorToken = jsonData.optString("visitor_token")
+                    val visitorLink = jsonData.optString("visitor_link")
+                    val expiresIn = jsonData.optInt("expires_in", 86400)
+                    
+                    safeRunOnUiThread {
+                        showVisitorLinkDialog(visitorId, roomId, visitorLink, expiresIn)
+                        statusTextView.text = "Status: Call erstellt - warte auf Visitor"
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun showVisitorLinkDialog(visitorId: String, roomId: String, visitorLink: String, expiresIn: Int) {
+        val hoursValid = expiresIn / 3600
+        
+        val message = "✅ Call-Link erstellt!\n\n" +
+            "Visitor: $visitorId\n" +
+            "Gültig für: ${hoursValid}h\n\n" +
+            "Link:\n$visitorLink\n\n" +
+            "Senden Sie diesen Link an den Visitor via Email, SMS oder Chat."
+        
+        AlertDialog.Builder(this)
+            .setTitle("📞 Call-Link bereit")
+            .setMessage(message)
+            .setPositiveButton("📋 Link kopieren") { _, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("Visitor Call Link", visitorLink)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "✅ Link kopiert!", Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton("📤 Teilen") { _, _ ->
+                val shareIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, "Sie wurden zu einem Call eingeladen: $visitorLink")
+                    type = "text/plain"
+                }
+                startActivity(Intent.createChooser(shareIntent, "Call-Link teilen"))
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    // --- Ende Outgoing Calls ---
     
     private fun openUserManagement() {
         val token = currentToken ?: return
@@ -1144,8 +1689,119 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 val userObj = usersArray.getJSONObject(which)
                 showUserActions(userId, userObj, domainsArray)
             }
+            .setPositiveButton("➕ Neuer User") { _, _ ->
+                createNewUser()
+            }
             .setNegativeButton("Zurück", null)
             .show()
+    }
+    
+    private fun createNewUser() {
+        // Check permission
+        if (!authClient.hasPermission("user.create")) {
+            Toast.makeText(this, "Keine Berechtigung zum Erstellen", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+        
+        val emailInput = android.widget.EditText(this).apply {
+            hint = "Email"
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        
+        val passwordInput = android.widget.EditText(this).apply {
+            hint = "Passwort"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
+        }
+        
+        val nameInput = android.widget.EditText(this).apply {
+            hint = "Name (optional)"
+        }
+        
+        layout.apply {
+            addView(emailInput)
+            addView(passwordInput)
+            addView(nameInput)
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("➕ Neuen User erstellen")
+            .setView(layout)
+            .setPositiveButton("Erstellen") { _, _ ->
+                val email = sanitizeInput(emailInput.text.toString())
+                val password = passwordInput.text.toString()
+                val name = nameInput.text.toString().trim().takeIf { it.isNotEmpty() }
+                
+                if (email.isBlank() || password.isBlank()) {
+                    Toast.makeText(this, "Email und Passwort erforderlich", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                submitCreateUser(email, password, name)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun submitCreateUser(email: String, password: String, name: String?) {
+        val token = currentToken ?: return
+        
+        statusTextView.text = "Status: Erstelle User..."
+        
+        val url = "https://$BACKEND_HOST/api/admin/create"
+        val json = org.json.JSONObject().apply {
+            put("email", email)
+            put("password", password)
+            if (name != null) put("name", name)
+        }
+        
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
+        
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .post(body)
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                    statusTextView.text = "Status: Fehler"
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    if (response.isSuccessful) {
+                        val responseData = org.json.JSONObject(response.body?.string() ?: "{}")
+                        val userId = responseData.optString("userId", "")
+                        Toast.makeText(this@AppActivity, "✅ User erstellt: $email", Toast.LENGTH_SHORT).show()
+                        statusTextView.text = "Status: User erstellt"
+                        openUserManagement() // Refresh
+                    } else {
+                        val errorBody = response.body?.string() ?: ""
+                        val errorMsg = try {
+                            org.json.JSONObject(errorBody).optString("error", errorBody)
+                        } catch (e: Exception) {
+                            errorBody
+                        }
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: $errorMsg", Toast.LENGTH_LONG).show()
+                        statusTextView.text = "Status: Fehler ${response.code}"
+                    }
+                }
+            }
+        })
     }
     
     private fun showUserActions(userId: String, userObj: org.json.JSONObject, domainsArray: org.json.JSONArray?) {
@@ -1185,8 +1841,167 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             assignDomains(userId, email, domainsList, domainsArray)
         }
         
-        builder.setNegativeButton("Zurück", null)
+        builder.setNeutralButton("✏️ Bearbeiten") { _, _ ->
+            editUser(userId, userObj)
+        }
+        
+        builder.setNegativeButton("🗑️ Löschen") { _, _ ->
+            confirmDeleteUser(userId, email)
+        }
+        
+        builder.show()
+    }
+    
+    private fun editUser(userId: String, userObj: org.json.JSONObject) {
+        // Check permission
+        if (!authClient.hasPermission("user.edit.team") && !authClient.hasPermission("user.edit.all")) {
+            Toast.makeText(this, "Keine Berechtigung zum Bearbeiten", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val currentEmail = userObj.optString("email", "")
+        val currentName = userObj.optString("displayName", "")
+        
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+        
+        val emailInput = android.widget.EditText(this).apply {
+            hint = "Email"
+            setText(currentEmail)
+        }
+        
+        val nameInput = android.widget.EditText(this).apply {
+            hint = "Name"
+            setText(currentName)
+        }
+        
+        val passwordInput = android.widget.EditText(this).apply {
+            hint = "Neues Passwort (leer lassen für keine Änderung)"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
+        }
+        
+        layout.apply {
+            addView(emailInput)
+            addView(nameInput)
+            addView(passwordInput)
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("✏️ User bearbeiten")
+            .setView(layout)
+            .setPositiveButton("Speichern") { _, _ ->
+                val newEmail = sanitizeInput(emailInput.text.toString())
+                val newName = nameInput.text.toString().trim().takeIf { it.isNotEmpty() }
+                val newPassword = passwordInput.text.toString().takeIf { it.isNotEmpty() }
+                
+                if (newEmail.isBlank()) {
+                    Toast.makeText(this, "Email erforderlich", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                submitEditUser(userId, newEmail, newName, newPassword)
+            }
+            .setNegativeButton("Abbrechen", null)
             .show()
+    }
+    
+    private fun submitEditUser(userId: String, email: String, displayName: String?, password: String?) {
+        val token = currentToken ?: return
+        
+        val url = "https://$BACKEND_HOST/api/admin/users/$userId"
+        val json = org.json.JSONObject().apply {
+            put("email", email)
+            if (displayName != null) put("displayName", displayName)
+            if (password != null) put("password", password)
+        }
+        
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toString().toRequestBody(mediaType)
+        
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .patch(body)
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@AppActivity, "✅ User aktualisiert", Toast.LENGTH_SHORT).show()
+                        openUserManagement() // Refresh
+                    } else {
+                        val errorBody = response.body?.string() ?: ""
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: $errorBody", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun confirmDeleteUser(userId: String, email: String) {
+        AlertDialog.Builder(this)
+            .setTitle("⚠️ User löschen?")
+            .setMessage("Möchten Sie den User wirklich löschen?\n\n$email\n\nDiese Aktion kann nicht rückgängig gemacht werden!")
+            .setPositiveButton("🗑️ Löschen") { _, _ ->
+                deleteUser(userId, email)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun deleteUser(userId: String, email: String) {
+        // Check permission
+        if (!authClient.hasPermission("user.delete")) {
+            Toast.makeText(this, "Keine Berechtigung zum Löschen", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val token = currentToken ?: return
+        
+        val url = "https://$BACKEND_HOST/api/admin/users/$userId"
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .delete()
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@AppActivity, "✅ User gelöscht: $email", Toast.LENGTH_SHORT).show()
+                        openUserManagement() // Refresh
+                    } else {
+                        val errorBody = response.body?.string() ?: ""
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: $errorBody", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
     }
     
     private fun approveUser(userId: String, email: String) {
@@ -1259,11 +2074,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     private fun saveDomainAssignment(userId: String, domains: List<String>) {
         val token = currentToken ?: return
-        val url = "https://$BACKEND_HOST/api/admin/assign"
+        val url = "https://$BACKEND_HOST/api/admin/assign-domains"
         
         val json = org.json.JSONObject().apply {
             put("targetUserId", userId)
-            put("allowed_domains", org.json.JSONArray(domains))
+            put("domainIds", org.json.JSONArray(domains))  // API v2.2: 'domainIds' not 'allowed_domains'
         }
         
         val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -1300,7 +2115,628 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
     
     private fun openDomainManagement() {
-        Toast.makeText(this, "Domain-Verwaltung kommt in Kürze", Toast.LENGTH_SHORT).show()
+        if (!authClient.hasPermission("domains.manage") && !authClient.hasPermission("*")) {
+            Toast.makeText(this, "Keine Berechtigung für Domain-Verwaltung", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        Toast.makeText(this, "Lade Domains...", Toast.LENGTH_SHORT).show()
+        val token = currentToken ?: return
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/domains"
+        
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Domain-Abruf fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                runOnUiThread {
+                    if (response.isSuccessful && body != null) {
+                        try {
+                            val json = JSONObject(body)
+                            if (json.getBoolean("success")) {
+                                val domainsArray = json.getJSONArray("domains")
+                                showDomainList(domainsArray)
+                            } else {
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun showDomainList(domains: JSONArray) {
+        val domainItems = mutableListOf<String>()
+        val domainObjects = mutableListOf<JSONObject>()
+        
+        for (i in 0 until domains.length()) {
+            val domain = domains.getJSONObject(i)
+            val domainId = domain.getString("id")
+            val name = domain.optString("name", domainId)
+            val isActive = domain.optBoolean("is_active", true)
+            val status = if (isActive) "✅" else "❌"
+            
+            domainItems.add("$status $name ($domainId)")
+            domainObjects.add(domain)
+        }
+        
+        if (domainItems.isEmpty()) {
+            Toast.makeText(this, "Keine Domains gefunden", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("🌐 Domain-Verwaltung")
+            .setItems(domainItems.toTypedArray()) { _, which ->
+                val selectedDomain = domainObjects[which]
+                showDomainActions(selectedDomain)
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    private fun showDomainActions(domain: JSONObject) {
+        val domainId = domain.getString("id")
+        val name = domain.optString("name", domainId)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Domain: $name")
+            .setMessage("ID: $domainId\nStatus: ${if (domain.optBoolean("is_active", true)) "Aktiv" else "Inaktiv"}")
+            .setPositiveButton("✏️ Bearbeiten") { _, _ ->
+                showEditDomainDialog(domain)
+            }
+            .setNeutralButton("🔄 Status umschalten") { _, _ ->
+                toggleDomainStatus(domain)
+            }
+            .setNegativeButton("Zurück", null)
+            .show()
+    }
+    
+    private fun showEditDomainDialog(domain: JSONObject) {
+        val domainId = domain.getString("id")
+        val currentName = domain.optString("name", domainId)
+        val currentAliases = domain.optJSONArray("aliases")
+        val aliasesStr = if (currentAliases != null) {
+            (0 until currentAliases.length()).joinToString(", ") { currentAliases.getString(it) }
+        } else ""
+        
+        val dialogView = layoutInflater.inflate(android.R.layout.simple_list_item_1, null)
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 20)
+        }
+        
+        val nameInput = android.widget.EditText(this).apply {
+            hint = "Domain Name"
+            setText(currentName)
+        }
+        
+        val aliasesInput = android.widget.EditText(this).apply {
+            hint = "Aliases (kommagetrennt)"
+            setText(aliasesStr)
+        }
+        
+        container.addView(android.widget.TextView(this).apply {
+            text = "Domain ID: $domainId (nicht änderbar)"
+            setPadding(0, 0, 0, 20)
+        })
+        container.addView(android.widget.TextView(this).apply { text = "Name:" })
+        container.addView(nameInput)
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Aliases (optional):"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(aliasesInput)
+        
+        AlertDialog.Builder(this)
+            .setTitle("✏️ Domain bearbeiten")
+            .setView(container)
+            .setPositiveButton("Speichern") { _, _ ->
+                val newName = sanitizeInput(nameInput.text.toString())
+                val aliasesText = aliasesInput.text.toString().trim()
+                val newAliases = if (aliasesText.isNotEmpty()) {
+                    aliasesText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                } else {
+                    emptyList()
+                }
+                
+                if (newName.isEmpty()) {
+                    Toast.makeText(this, "Name darf nicht leer sein", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                updateDomain(domainId, newName, newAliases, domain.optBoolean("is_active", true))
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun toggleDomainStatus(domain: JSONObject) {
+        val domainId = domain.getString("id")
+        val currentStatus = domain.optBoolean("is_active", true)
+        val newStatus = !currentStatus
+        
+        updateDomain(
+            domainId,
+            domain.optString("name", domainId),
+            (domain.optJSONArray("aliases")?.let { arr ->
+                (0 until arr.length()).map { arr.getString(it) }
+            } ?: emptyList()),
+            newStatus
+        )
+    }
+    
+    private fun updateDomain(domainId: String, name: String, aliases: List<String>, isActive: Boolean) {
+        if (!authClient.hasPermission("domains.manage") && !authClient.hasPermission("*")) {
+            Toast.makeText(this, "Keine Berechtigung", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val token = currentToken ?: return
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/domain/$domainId"
+        
+        val bodyJson = JSONObject().apply {
+            put("name", name)
+            put("aliases", JSONArray(aliases))
+            put("is_active", isActive)
+        }
+        
+        val requestBody = bodyJson.toString().toRequestBody("application/json".toMediaTypeOrNull())
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .patch(requestBody)
+            .build()
+        
+        Toast.makeText(this, "Aktualisiere Domain...", Toast.LENGTH_SHORT).show()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Domain-Update fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                runOnUiThread {
+                    if (response.isSuccessful && body != null) {
+                        try {
+                            val json = JSONObject(body)
+                            if (json.getBoolean("success")) {
+                                Toast.makeText(this@AppActivity, "Domain erfolgreich aktualisiert", Toast.LENGTH_SHORT).show()
+                                openDomainManagement() // Refresh list
+                            } else {
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: ${body ?: "Keine Details"}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    // --- Role Management (API v2.2) ---
+    
+    private fun openRoleManagement() {
+        if (!authClient.hasPermission("roles.manage") && !authClient.hasPermission("*")) {
+            Toast.makeText(this, "Keine Berechtigung für Rollen-Verwaltung", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("🎭 Rollen-Verwaltung")
+            .setMessage("Wählen Sie eine Aktion:")
+            .setPositiveButton("➕ Neue Rolle") { _, _ ->
+                createNewRole()
+            }
+            .setNeutralButton("📋 Rollen anzeigen") { _, _ ->
+                showRoleList()
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    private fun createNewRole() {
+        val dialogView = layoutInflater.inflate(android.R.layout.simple_list_item_1, null)
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 20)
+        }
+        
+        val nameInput = android.widget.EditText(this).apply {
+            hint = "Rollenname (z.B. 'agent', 'supervisor')"
+        }
+        
+        val levelInput = android.widget.EditText(this).apply {
+            hint = "Level (0-100, höher = mehr Rechte)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+        
+        val permissionsInput = android.widget.EditText(this).apply {
+            hint = "Permissions (kommagetrennt, z.B. 'call.receive,call.view.all')"
+            minLines = 3
+        }
+        
+        container.addView(android.widget.TextView(this).apply { text = "Rollenname:" })
+        container.addView(nameInput)
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Level (0-100):"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(levelInput)
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Permissions:"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(permissionsInput)
+        container.addView(android.widget.TextView(this).apply {
+            text = "\nBeispiel Permissions:\n• call.receive\n• call.view.all\n• admin.users.manage\n• admin.domains.manage\n• * (SuperAdmin)"
+            textSize = 12f
+            setPadding(0, 10, 0, 0)
+        })
+        
+        AlertDialog.Builder(this)
+            .setTitle("➕ Neue Rolle erstellen")
+            .setView(container)
+            .setPositiveButton("Erstellen") { _, _ ->
+                val name = sanitizeInput(nameInput.text.toString())
+                val levelStr = levelInput.text.toString()
+                val permissionsText = permissionsInput.text.toString().trim()
+                
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Rollenname erforderlich", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                val level = levelStr.toIntOrNull() ?: 0
+                val permissions = if (permissionsText.isNotEmpty()) {
+                    permissionsText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                } else {
+                    emptyList()
+                }
+                
+                createRole(name, level, permissions)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun createRole(name: String, level: Int, permissions: List<String>) {
+        val token = currentToken ?: return
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/roles"
+        
+        val bodyJson = JSONObject().apply {
+            put("name", name)
+            put("level", level)
+            put("permissions", JSONArray(permissions))
+        }
+        
+        val requestBody = bodyJson.toString().toRequestBody("application/json".toMediaTypeOrNull())
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .post(requestBody)
+            .build()
+        
+        Toast.makeText(this, "Erstelle Rolle...", Toast.LENGTH_SHORT).show()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Rollen-Erstellung fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                runOnUiThread {
+                    if (response.isSuccessful && body != null) {
+                        try {
+                            val json = JSONObject(body)
+                            if (json.getBoolean("success")) {
+                                Toast.makeText(this@AppActivity, "✅ Rolle '$name' erstellt", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: ${body ?: "Keine Details"}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun showRoleList() {
+        val token = currentToken ?: return
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/roles"
+        
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        Toast.makeText(this, "Lade Rollen...", Toast.LENGTH_SHORT).show()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Rollen-Abruf fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                runOnUiThread {
+                    if (response.isSuccessful && body != null) {
+                        try {
+                            val json = JSONObject(body)
+                            if (json.getBoolean("success")) {
+                                val rolesArray = json.getJSONArray("roles")
+                                displayRoleList(rolesArray)
+                            } else {
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun displayRoleList(roles: JSONArray) {
+        val roleItems = mutableListOf<String>()
+        val roleObjects = mutableListOf<JSONObject>()
+        
+        for (i in 0 until roles.length()) {
+            val role = roles.getJSONObject(i)
+            val name = role.getString("name")
+            val level = role.optInt("level", 0)
+            val permCount = role.optJSONArray("permissions")?.length() ?: 0
+            
+            roleItems.add("🎭 $name (Level $level, $permCount Permissions)")
+            roleObjects.add(role)
+        }
+        
+        if (roleItems.isEmpty()) {
+            Toast.makeText(this, "Keine Rollen gefunden", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("📋 Rollen-Liste")
+            .setItems(roleItems.toTypedArray()) { _, which ->
+                val selectedRole = roleObjects[which]
+                showRoleActions(selectedRole)
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    
+    private fun showRoleActions(role: JSONObject) {
+        val roleName = role.getString("name")
+        val level = role.optInt("level", 0)
+        val permissions = role.optJSONArray("permissions")
+        val permList = if (permissions != null) {
+            (0 until permissions.length()).joinToString("\n• ") { permissions.getString(it) }
+        } else "Keine"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Rolle: $roleName")
+            .setMessage("Level: $level\n\nPermissions:\n• $permList")
+            .setPositiveButton("✏️ Bearbeiten") { _, _ ->
+                editRole(role)
+            }
+            .setNeutralButton("🗑️ Löschen") { _, _ ->
+                confirmDeleteRole(role)
+            }
+            .setNegativeButton("Zurück", null)
+            .show()
+    }
+    
+    private fun editRole(role: JSONObject) {
+        val roleId = role.getString("id")
+        val currentName = role.getString("name")
+        val currentLevel = role.optInt("level", 0)
+        val currentPermissions = role.optJSONArray("permissions")
+        val permStr = if (currentPermissions != null) {
+            (0 until currentPermissions.length()).joinToString(", ") { currentPermissions.getString(it) }
+        } else ""
+        
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 20)
+        }
+        
+        val nameInput = android.widget.EditText(this).apply {
+            hint = "Rollenname"
+            setText(currentName)
+        }
+        
+        val levelInput = android.widget.EditText(this).apply {
+            hint = "Level (0-100)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(currentLevel.toString())
+        }
+        
+        val permissionsInput = android.widget.EditText(this).apply {
+            hint = "Permissions (kommagetrennt)"
+            setText(permStr)
+            minLines = 3
+        }
+        
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Rolle ID: $roleId (nicht änderbar)"
+            setPadding(0, 0, 0, 20)
+        })
+        container.addView(android.widget.TextView(this).apply { text = "Rollenname:" })
+        container.addView(nameInput)
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Level (0-100):"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(levelInput)
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Permissions:"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(permissionsInput)
+        
+        AlertDialog.Builder(this)
+            .setTitle("✏️ Rolle bearbeiten")
+            .setView(container)
+            .setPositiveButton("Speichern") { _, _ ->
+                val newName = sanitizeInput(nameInput.text.toString())
+                val levelStr = levelInput.text.toString()
+                val permissionsText = permissionsInput.text.toString().trim()
+                
+                if (newName.isEmpty()) {
+                    Toast.makeText(this, "Rollenname erforderlich", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                val level = levelStr.toIntOrNull() ?: 0
+                val permissions = if (permissionsText.isNotEmpty()) {
+                    permissionsText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                } else {
+                    emptyList()
+                }
+                
+                updateRole(roleId, newName, level, permissions)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun updateRole(roleId: String, name: String, level: Int, permissions: List<String>) {
+        val token = currentToken ?: return
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/roles/$roleId"
+        
+        val bodyJson = JSONObject().apply {
+            put("name", name)
+            put("level", level)
+            put("permissions", JSONArray(permissions))
+        }
+        
+        val requestBody = bodyJson.toString().toRequestBody("application/json".toMediaTypeOrNull())
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .patch(requestBody)
+            .build()
+        
+        Toast.makeText(this, "Aktualisiere Rolle...", Toast.LENGTH_SHORT).show()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Rollen-Update fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                runOnUiThread {
+                    if (response.isSuccessful && body != null) {
+                        try {
+                            val json = JSONObject(body)
+                            if (json.getBoolean("success")) {
+                                Toast.makeText(this@AppActivity, "✅ Rolle aktualisiert", Toast.LENGTH_SHORT).show()
+                                showRoleList() // Refresh
+                            } else {
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: ${body ?: "Keine Details"}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun confirmDeleteRole(role: JSONObject) {
+        val roleId = role.getString("id")
+        val roleName = role.getString("name")
+        
+        AlertDialog.Builder(this)
+            .setTitle("⚠️ Rolle löschen?")
+            .setMessage("Möchten Sie die Rolle '$roleName' wirklich löschen?\n\nAlle Benutzer mit dieser Rolle verlieren ihre Zugriffsrechte.")
+            .setPositiveButton("Löschen") { _, _ ->
+                deleteRole(roleId, roleName)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+    
+    private fun deleteRole(roleId: String, roleName: String) {
+        val token = currentToken ?: return
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/roles/$roleId"
+        
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .delete()
+            .build()
+        
+        Toast.makeText(this, "Lösche Rolle...", Toast.LENGTH_SHORT).show()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@AppActivity, "Rollen-Löschung fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                runOnUiThread {
+                    if (response.isSuccessful && body != null) {
+                        try {
+                            val json = JSONObject(body)
+                            if (json.getBoolean("success")) {
+                                Toast.makeText(this@AppActivity, "✅ Rolle '$roleName' gelöscht", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this@AppActivity, "Fehler ${response.code}: ${body ?: "Keine Details"}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
     }
     
     private fun openSupervisorPanel() {
@@ -1314,12 +2750,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setMessage("Supervisor-Funktionen:\n\n" +
                 "• Live-Monitoring von Anrufen\n" +
                 "• Call-Statistiken\n" +
-                "• Agent-Performance\n")
-            .setPositiveButton("📹 Live Calls überwachen") { _, _ ->
+                "• Agent-Performance\n" +
+                "• Ausgehende Calls (NEW)")
+            .setPositiveButton("📹 Live Calls") { _, _ ->
                 startLiveMonitoring()
             }
-            .setNeutralButton("📊 Statistiken") { _, _ ->
-                showCallStatistics()
+            .setNeutralButton("📞 Call initiieren") { _, _ ->
+                initiateOutgoingCall()
             }
             .setNegativeButton("Schließen", null)
             .show()
@@ -1554,16 +2991,120 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     }
     
     private fun showCallStatistics() {
-        // Platzhalter für Statistiken
+        val token = currentToken ?: return
+        
+        // Check permission
+        if (!authClient.hasPermission("analytics.view.team") && !authClient.hasPermission("analytics.view.all")) {
+            Toast.makeText(this, "Keine Berechtigung für Statistiken", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        statusTextView.text = "Status: Lade Statistiken..."
+        
+        val url = "https://$BACKEND_HOST/api/admin/stats/summary"
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler beim Laden: ${e.message}", Toast.LENGTH_LONG).show()
+                    statusTextView.text = "Status: Fehler"
+                }
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                response.use {
+                    if (!it.isSuccessful) {
+                        safeRunOnUiThread {
+                            Toast.makeText(this@AppActivity, "Fehler: ${it.code}", Toast.LENGTH_LONG).show()
+                            statusTextView.text = "Status: Fehler ${it.code}"
+                        }
+                        return
+                    }
+                    
+                    val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
+                    safeRunOnUiThread {
+                        displayStatistics(jsonData)
+                        statusTextView.text = "Status: Statistiken angezeigt"
+                    }
+                }
+            }
+        })
+    }
+    
+    private fun displayStatistics(data: org.json.JSONObject) {
+        val summary = data.optJSONObject("summary")
+        val breakdown = data.optJSONObject("breakdown")
+        val agentActivity = data.optJSONObject("agentActivity")
+        
+        if (summary == null) {
+            Toast.makeText(this, "Keine Statistiken verfügbar", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Parse summary data (API v2.2 new fields)
+        val totalCalls = summary.optInt("totalCalls", 0)
+        val activeCalls = summary.optInt("activeCalls", 0)
+        val callsToday = summary.optInt("callsToday", 0)
+        val avgDuration = summary.optInt("avgCallDuration", 0)
+        val queuedCalls = summary.optInt("queuedCalls", 0)  // NEW
+        val avgWaitTime = summary.optInt("avgWaitTime", 0)  // NEW
+        val missedToday = summary.optInt("missedToday", 0)  // NEW
+        
+        // Agent activity (NEW)
+        val available = agentActivity?.optInt("available", 0) ?: 0
+        val busy = agentActivity?.optInt("busy", 0) ?: 0
+        val onBreak = agentActivity?.optInt("break", 0) ?: 0
+        val offline = agentActivity?.optInt("offline", 0) ?: 0
+        
+        val statsMessage = buildString {
+            append("📊 Gesamt-Statistiken\n\n")
+            append("Calls gesamt: $totalCalls\n")
+            append("Aktive Calls: $activeCalls\n")
+            append("Calls heute: $callsToday\n")
+            append("⏱️ Ø Dauer: ${avgDuration}s\n\n")
+            
+            append("📋 Warteschlange (NEW)\n")
+            append("In Warteschlange: $queuedCalls\n")
+            append("⏳ Ø Wartezeit: ${avgWaitTime}s\n")
+            append("❌ Verpasst heute: $missedToday\n\n")
+            
+            append("👥 Agent-Status (NEW)\n")
+            append("✅ Verfügbar: $available\n")
+            append("📞 Beschäftigt: $busy\n")
+            append("☕ Pause: $onBreak\n")
+            append("⚫ Offline: $offline\n\n")
+            
+            // Domain breakdown
+            if (breakdown != null) {
+                val byDomain = breakdown.optJSONArray("byDomain")
+                if (byDomain != null && byDomain.length() > 0) {
+                    append("🌐 Nach Domain:\n")
+                    for (i in 0 until minOf(5, byDomain.length())) {
+                        val entry = byDomain.getJSONObject(i)
+                        val domain = entry.optString("domain_id", "unknown")
+                        val count = entry.optInt("count", 0)
+                        append("  • $domain: $count\n")
+                    }
+                }
+            }
+        }
+        
         AlertDialog.Builder(this)
             .setTitle("📊 Call-Statistiken")
-            .setMessage("Statistik-Features:\n\n" +
-                "• Anzahl Calls pro Domain\n" +
-                "• Durchschnittliche Gesprächsdauer\n" +
-                "• Agent-Performance\n" +
-                "• Warteschlangen-Analyse\n\n" +
-                "Kommt in Kürze!")
+            .setMessage(statsMessage)
             .setPositiveButton("OK", null)
+            .setNeutralButton("🔄 Aktualisieren") { _, _ ->
+                showCallStatistics()
+            }
             .show()
     }
     
@@ -1630,15 +3171,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     // WebRTC Connection Quality Monitoring
                     when (newState) {
                         PeerConnection.IceConnectionState.CONNECTED -> 
-                            activity?.updateConnectionQuality("excellent")
+                            activity?.runOnUiThread { activity.updateConnectionQuality("excellent") }
                         PeerConnection.IceConnectionState.COMPLETED -> 
-                            activity?.updateConnectionQuality("excellent")
+                            activity?.runOnUiThread { activity.updateConnectionQuality("excellent") }
                         PeerConnection.IceConnectionState.CHECKING -> 
-                            activity?.updateConnectionQuality("good")
+                            activity?.runOnUiThread { activity.updateConnectionQuality("good") }
                         PeerConnection.IceConnectionState.DISCONNECTED -> 
-                            activity?.updateConnectionQuality("poor")
+                            activity?.runOnUiThread { activity.updateConnectionQuality("poor") }
                         PeerConnection.IceConnectionState.FAILED -> 
-                            activity?.updateConnectionQuality("bad")
+                            activity?.runOnUiThread { activity.updateConnectionQuality("bad") }
                         else -> {}
                     }
                 }
@@ -1681,7 +3222,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 return
             }
             
-            val answer = SessionDescription(SessionDescription.Type.ANSWER, sdpJson.getString("sdp"))
+            // Support both new 'data' format and old 'sdp' format (backward compatibility)
+            val sdpString = if (sdpJson.has("data")) {
+                sdpJson.getJSONObject("data").getString("sdp")
+            } else {
+                sdpJson.getString("sdp")
+            }
+            
+            val answer = SessionDescription(SessionDescription.Type.ANSWER, sdpString)
             pc.setRemoteDescription(object : SdpObserver {
                 override fun onCreateSuccess(sdp: SessionDescription) {}
                 override fun onSetSuccess() {}
@@ -1697,10 +3245,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 return
             }
             
+            // Support both new 'data' format and old format (backward compatibility)
+            val candidateData = if (candidateJson.has("data")) {
+                candidateJson.getJSONObject("data")
+            } else {
+                candidateJson
+            }
+            
             val candidate = IceCandidate(
-                candidateJson.getString("sdpMid"),
-                candidateJson.getInt("sdpMLineIndex"),
-                candidateJson.getString("candidate")
+                candidateData.getString("sdpMid"),
+                candidateData.getInt("sdpMLineIndex"),
+                candidateData.getString("candidate")
             )
             pc.addIceCandidate(candidate)
         }

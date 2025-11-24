@@ -26,8 +26,12 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
         
         private const val PREF_FILE = "secure_prefs"
         private const val KEY_TOKEN = "jwt_token"
-        private const val KEY_ROLE = "jwt_role"
-        private const val KEY_DOMAINS = "jwt_domains"
+        private const val KEY_USER_ID = "user_id"
+        private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_DISPLAY_NAME = "display_name"
+        private const val KEY_ROLES = "user_roles"
+        private const val KEY_PERMISSIONS = "user_permissions"
+        private const val KEY_DOMAINS = "allowed_domains"
         private const val KEY_ROOM_ID = "active_room_id"
     }
     
@@ -46,21 +50,21 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
     }
 
     interface LoginCallback {
-        fun onSuccess(token: String, role: String?, domains: List<String>)
+        fun onSuccess(token: String, userId: String, displayName: String?, domains: List<String>)
         fun onFailure(message: String)
     }
 
     interface RegisterCallback {
-        fun onSuccess(token: String, role: String?, domains: List<String>)
+        fun onSuccess(token: String, userId: String, displayName: String?, domains: List<String>)
         fun onFailure(message: String)
     }
 
-    fun register(name: String?, email: String, password: String, cb: RegisterCallback) {
+    fun register(displayName: String?, email: String, password: String, cb: RegisterCallback) {
         val url = "$baseUrl/api/register"
         val json = JSONObject().apply {
             put("email", email)
             put("password", password)
-            if (!name.isNullOrBlank()) put("name", name)
+            if (!displayName.isNullOrBlank()) put("displayName", displayName)
         }
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val body = json.toString().toRequestBody(mediaType)
@@ -93,25 +97,46 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
                     val text = it.body?.string() ?: ""
                     try {
                         val json = JSONObject(text)
+                        
+                        // Check if registration needs approval (no token returned)
+                        val message = json.optString("message", "")
+                        if (message.isNotEmpty() && !json.has("token")) {
+                            cb.onFailure("✅ $message")
+                            return
+                        }
+                        
+                        // Parse new API v2.2 response structure
                         val token = json.optString("token", "")
-                        val role = json.optString("role", null)
-                        val domainsJson = json.optJSONArray("domains")
+                        val userObj = json.optJSONObject("user")
+                        if (token.isBlank() || userObj == null) {
+                            cb.onFailure("Invalid response: missing token or user")
+                            return
+                        }
+                        
+                        val userId = userObj.optString("id", "")
+                        val email = userObj.optString("email", "")
+                        val displayName = userObj.optString("displayName").takeIf { it.isNotEmpty() }
+                        val domainsArray = userObj.optJSONArray("allowedDomains")
+                        val rolesArray = userObj.optJSONArray("roles")
+                        val permissionsArray = userObj.optJSONArray("permissions")
+                        
                         val domains = mutableListOf<String>()
-                        if (domainsJson != null) {
-                            for (i in 0 until domainsJson.length()) {
-                                domains.add(domainsJson.optString(i))
+                        if (domainsArray != null) {
+                            for (i in 0 until domainsArray.length()) {
+                                domains.add(domainsArray.optString(i))
                             }
                         }
-                        if (token.isNotBlank()) {
-                            saveToken(token)
-                            saveDomains(domains)
-                            cb.onSuccess(token, role, domains)
-                        } else {
-                            // Backend gibt bei Register keinen Token zurück (approved=0)
-                            // Zeige Erfolg-Meldung statt Fehler
-                            val successMsg = json.optString("message", "Registrierung erfolgreich")
-                            cb.onFailure("✅ $successMsg")
-                        }
+                        
+                        // Save all data
+                        saveToken(token)
+                        saveUserId(userId)
+                        saveEmail(email)
+                        saveDisplayName(displayName)
+                        saveDomains(domains)
+                        saveRoles(rolesArray)
+                        savePermissions(permissionsArray)
+                        
+                        cb.onSuccess(token, userId, displayName, domains)
                     } catch (e: Exception) {
                         cb.onFailure("Invalid response: ${e.message}")
                     }
@@ -158,22 +183,39 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
                     val text = it.body?.string() ?: ""
                     try {
                         val json = JSONObject(text)
+                        
+                        // Parse new API v2.2 response structure
                         val token = json.optString("token", "")
-                        val role = json.optString("role", null)
-                        val domainsJson = json.optJSONArray("domains")
+                        val userObj = json.optJSONObject("user")
+                        if (token.isBlank() || userObj == null) {
+                            cb.onFailure("Login succeeded but invalid response")
+                            return
+                        }
+                        
+                        val userId = userObj.optString("id", "")
+                        val email = userObj.optString("email", "")
+                        val displayName = userObj.optString("displayName").takeIf { it.isNotEmpty() }
+                        val domainsArray = userObj.optJSONArray("allowedDomains")
+                        val rolesArray = userObj.optJSONArray("roles")
+                        val permissionsArray = userObj.optJSONArray("permissions")
+                        
                         val domains = mutableListOf<String>()
-                        if (domainsJson != null) {
-                            for (i in 0 until domainsJson.length()) {
-                                domains.add(domainsJson.optString(i))
+                        if (domainsArray != null) {
+                            for (i in 0 until domainsArray.length()) {
+                                domains.add(domainsArray.optString(i))
                             }
                         }
-                        if (token.isNotBlank()) {
-                            saveToken(token)
-                            saveDomains(domains)
-                            cb.onSuccess(token, role, domains)
-                        } else {
-                            cb.onFailure("Login succeeded but no token returned")
-                        }
+                        
+                        // Save all data
+                        saveToken(token)
+                        saveUserId(userId)
+                        saveEmail(email)
+                        saveDisplayName(displayName)
+                        saveDomains(domains)
+                        saveRoles(rolesArray)
+                        savePermissions(permissionsArray)
+                        
+                        cb.onSuccess(token, userId, displayName, domains)
                     } catch (e: Exception) {
                         cb.onFailure("Invalid response: ${e.message}")
                     }
@@ -185,9 +227,41 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
     private fun saveToken(token: String) {
         prefs.edit().putString(KEY_TOKEN, token).apply()
     }
+    
+    private fun saveUserId(userId: String) {
+        prefs.edit().putString(KEY_USER_ID, userId).apply()
+    }
+    
+    private fun saveEmail(email: String) {
+        prefs.edit().putString(KEY_USER_EMAIL, email).apply()
+    }
+    
+    private fun saveDisplayName(displayName: String?) {
+        if (displayName != null) {
+            prefs.edit().putString(KEY_DISPLAY_NAME, displayName).apply()
+        } else {
+            prefs.edit().remove(KEY_DISPLAY_NAME).apply()
+        }
+    }
 
     private fun saveDomains(domains: List<String>) {
         prefs.edit().putString(KEY_DOMAINS, JSONObject().put("domains", domains).toString()).apply()
+    }
+    
+    private fun saveRoles(rolesArray: org.json.JSONArray?) {
+        if (rolesArray != null) {
+            prefs.edit().putString(KEY_ROLES, rolesArray.toString()).apply()
+        } else {
+            prefs.edit().remove(KEY_ROLES).apply()
+        }
+    }
+    
+    private fun savePermissions(permissionsArray: org.json.JSONArray?) {
+        if (permissionsArray != null) {
+            prefs.edit().putString(KEY_PERMISSIONS, permissionsArray.toString()).apply()
+        } else {
+            prefs.edit().remove(KEY_PERMISSIONS).apply()
+        }
     }
 
     fun getToken(): String? {
@@ -225,7 +299,11 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
     fun clearToken() {
         prefs.edit()
             .remove(KEY_TOKEN)
-            .remove(KEY_ROLE)
+            .remove(KEY_USER_ID)
+            .remove(KEY_USER_EMAIL)
+            .remove(KEY_DISPLAY_NAME)
+            .remove(KEY_ROLES)
+            .remove(KEY_PERMISSIONS)
             .remove(KEY_DOMAINS)
             .apply()
     }
@@ -306,5 +384,60 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
     
     fun getRoomId(): String? {
         return prefs.getString(KEY_ROOM_ID, null)
+    }
+    
+    // Getter für neue User-Felder
+    fun getUserId(): String? {
+        return prefs.getString(KEY_USER_ID, null)
+    }
+    
+    fun getEmail(): String? {
+        return prefs.getString(KEY_USER_EMAIL, null)
+    }
+    
+    fun getDisplayName(): String? {
+        return prefs.getString(KEY_DISPLAY_NAME, null)
+    }
+    
+    fun getRoles(): List<Map<String, Any>> {
+        val rolesJson = prefs.getString(KEY_ROLES, null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(rolesJson)
+            val roles = mutableListOf<Map<String, Any>>()
+            for (i in 0 until arr.length()) {
+                val roleObj = arr.optJSONObject(i)
+                if (roleObj != null) {
+                    roles.add(mapOf(
+                        "id" to roleObj.optString("id", ""),
+                        "name" to roleObj.optString("name", ""),
+                        "level" to roleObj.optInt("level", 0)
+                    ))
+                }
+            }
+            roles
+        } catch (e: Exception) {
+            Log.e("AuthClient", "getRoles parse failed: ${e.message}")
+            emptyList()
+        }
+    }
+    
+    fun getPermissions(): List<String> {
+        val permsJson = prefs.getString(KEY_PERMISSIONS, null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(permsJson)
+            val perms = mutableListOf<String>()
+            for (i in 0 until arr.length()) {
+                perms.add(arr.optString(i))
+            }
+            perms
+        } catch (e: Exception) {
+            Log.e("AuthClient", "getPermissions parse failed: ${e.message}")
+            emptyList()
+        }
+    }
+    
+    fun hasPermission(permission: String): Boolean {
+        val perms = getPermissions()
+        return perms.contains("*") || perms.contains(permission)
     }
 }
