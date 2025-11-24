@@ -5,7 +5,15 @@
 
 **Package:** `com.x2bro4pro.bro4call`  
 **Backend:** `call-server.netdoc64.workers.dev` (Cloudflare Workers)  
+**Backend API:** v2.2 (see API_ENDPOINTS.md, API_REFERENCE.md)  
 **Min SDK:** 24 | **Target SDK:** 34 | **Gradle:** 8.1.1 | **AGP:** 8.1.1 | **Kotlin:** 1.9.0
+
+**Key Files:**
+- `AppActivity.kt` (~3150 lines) - Main UI controller with admin features, queue management, analytics
+- `CallService.kt` (405 lines) - Foreground service for persistent WebSocket connections
+- `SignalingClient.kt` (250 lines) - WebSocket manager with intelligent reconnection logic
+- `AuthClient.kt` (444 lines) - REST authentication with encrypted credential storage and permission system
+- `BootReceiver.kt` - Auto-starts CallService after device reboot
 
 ## Architecture & Data Flow
 
@@ -21,11 +29,28 @@ Web Visitor → Backend WebSocket → CallService (foreground) → Notification
 ```
 
 ### Key Components
-1. **AppActivity** (1734 lines) - Main UI controller implementing `SignalingListener`
-   - Contains **embedded inner classes** `VisitorAdapter` (line 1575) and `PeerConnectionClient` (line 1603)
+1. **AppActivity** (~3150 lines) - Main UI controller implementing `SignalingListener`
+   - Contains **embedded inner classes:**
+     - `VisitorAdapter` (line ~1575) - RecyclerView adapter for live visitor list
+     - `PeerConnectionClient` (line 1603) - WebRTC client with audio track management
+   - **Admin Features (NEW):**
+     - Queue Management: View waiting calls, assign to agents, delete entries
+       - Permissions: `call.view.all`, `call.assign`, `call.manage`
+     - Outgoing Calls: Agent-initiated calls with visitor link generation (copy/share)
+       - Permission: `call.initiate`
+     - Analytics Dashboard: Real-time metrics (queuedCalls, avgWaitTime, missedToday, agentActivity)
+       - Permissions: `analytics.view.team`, `analytics.view.all`
+     - User CRUD: Create/Edit/Delete users with role/domain assignment
+       - Permissions: `user.create`, `user.edit.team`, `user.edit.all`, `user.delete`
+     - Role Management: Full CRUD for roles with permission arrays
+       - Permission: `roles.manage`
+     - Domain Management: Edit domain name, aliases[], is_active status
+       - Permission: `domains.manage`
    - Binds to `CallService` via `ServiceConnection` pattern
    - Manages visitor RecyclerView and WebRTC peer connections
    - Sets global crash handler writing to `filesDir/last_crash.log`
+   - **WebRTC Audio:** Configures echo cancellation, noise suppression, auto gain control via `MediaConstraints`
+   - **HTTP Client:** Uses companion object `httpClient` (OkHttp) with 15s connect, 30s read timeout
 
 2. **CallService** - Foreground service (`FOREGROUND_SERVICE_TYPE_MICROPHONE`)
    - Maintains persistent WebSocket connection via `SignalingClient`
@@ -36,15 +61,20 @@ Web Visitor → Backend WebSocket → CallService (foreground) → Notification
 3. **SignalingClient** - WebSocket manager with intelligent reconnection
    - URL format: `wss://{HOST}/call/{roomId}?token={token}&mode={mode}`
    - Modes: `talk` (agent), `listen` (supervisor monitoring)
-   - **Exponential backoff:** Resets to mid-backoff at max attempts instead of giving up
+   - **Exponential backoff:** Delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s (max 60s) with ±20% jitter
+   - Resets to mid-backoff at max attempts instead of giving up (continues with 2min delay)
    - **Heartbeat:** Sends `{"type":"ping"}` every 30s to keep connection alive
-   - Validates `lastRoomId` and `lastToken` before reconnect attempts
+   - Validates `lastRoomId` and `lastToken` before reconnect attempts (prevents logout loops)
+   - Uses OkHttp with 20s ping interval, 10s connect timeout, 30s read/write timeout
 
-4. **AuthClient** - REST authentication using `EncryptedSharedPreferences`
+4. **AuthClient** (444 lines) - REST authentication using `EncryptedSharedPreferences`
    - Endpoints: `/api/login`, `/api/register`
-   - Storage keys: `jwt_token`, `jwt_role`, `jwt_domains`, `active_room_id`
+   - **API v2.2 Response:** `{ token, user: { id, email, displayName, roles[], permissions[], allowedDomains[] } }`
+   - Storage keys: `jwt_token`, `user_id`, `user_email`, `display_name`, `user_roles`, `user_permissions`, `allowed_domains`, `active_room_id`
    - Uses `MasterKeys.AES256_GCM_SPEC` for credential encryption
    - Max 3 retries with `retryOnConnectionFailure=true`
+   - **Permission checking:** `hasPermission(permission: String)` checks for `*` (SuperAdmin) or specific permission
+   - **New methods:** `getUserId()`, `getEmail()`, `getDisplayName()`, `getRoles()`, `getPermissions()`
 
 5. **BootReceiver** - Auto-starts `CallService` after device reboot
    - Only starts if valid JWT token exists
@@ -88,6 +118,25 @@ SignalingClient(listener, "call-server.netdoc64.workers.dev")
 AuthClient(context, "https://call-server.netdoc64.workers.dev")
 ```
 Mixing these causes connection failures.
+
+### WebRTC Message Format (API v2.2)
+**NEW:** Backend uses `data` property for WebRTC messages:
+```kotlin
+// Sending (Client → Server)
+JSONObject().apply {
+    put("type", "ice")  // or "offer", "answer"
+    put("data", JSONObject().apply {
+        put("candidate", candidate.sdp)
+        put("sdpMid", candidate.sdpMid)
+        put("sdpMLineIndex", candidate.sdpMLineIndex)
+    })
+}
+
+// Receiving (Server → Client) - Backward Compatible
+val candidateData = message.optJSONObject("data") ?: message.optJSONObject("candidate")
+```
+**Deprecated:** `type: "candidate"` - use `type: "ice"` instead  
+**Backward Compatibility:** Client accepts both old and new formats
 
 ### WebRTC Library Selection
 **Only use:** `com.dafruits:webrtc:113.0.0` (Maven Central)
@@ -199,7 +248,7 @@ adb shell cmd connectivity airplane-mode enable
 # Check logs for: "Reconnecting attempt X with delay Y ms"
 adb logcat | grep "SignalingClient"
 ```
-Expected backoff delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s (then resets to mid-range)
+Expected backoff delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s (max 60s, then resets to mid-range with 2min pause)
 
 ### Permission Handling
 ```kotlin
@@ -257,3 +306,10 @@ if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
 - [ ] Device reboot → `BootReceiver` restarts service (if logged in)
 - [ ] Network loss → reconnection backoff (check "Reconnecting attempt X" logs)
 - [ ] Battery optimization dialog shown on first run
+- [ ] **NEW:** Queue Management - View waiting calls, assign to agent, delete
+- [ ] **NEW:** Outgoing Calls - Agent initiates call → generates visitor link → copy/share
+- [ ] **NEW:** Analytics Dashboard - Real-time metrics with queuedCalls, avgWaitTime, missedToday, agentActivity
+- [ ] **NEW:** User CRUD - Create/Edit/Delete users with role/domain assignment
+- [ ] **NEW:** Role Management - Create/Edit/Delete roles with permission arrays
+- [ ] **NEW:** Domain Management - Edit domain name, aliases[], toggle is_active status
+- [ ] **NEW:** Permission checks - hasPermission() validates user access for all admin features
