@@ -67,23 +67,32 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     }
     
     fun connectWithMode(roomId: String, token: String, mode: String = "talk") {
+        Log.d("SignalingClient", "🔍 [DEBUG] ========== CONNECT INITIATED ==========")
+        Log.d("SignalingClient", "🔍 [DEBUG] roomId=$roomId, mode=$mode, tokenLength=${token.length}")
+        
         // store requested connection for automatic reconnects
         lastRoomId = roomId
         lastToken = token
         userInitiatedDisconnect = false
         reconnectAttempts = 0  // Reset bei jedem neuen connect()
         reconnecting = false
+        
+        Log.d("SignalingClient", "🔍 [DEBUG] Stored credentials for reconnect: lastRoomId=$lastRoomId")
 
         val scheme = if (backendHost.startsWith("http")) {
             // strip scheme
             backendHost.replaceFirst(Regex("^https?://"), "")
         } else backendHost
-        val fullUrl = "wss://$scheme/call/$roomId?token=$token&mode=$mode"
-        val request = Request.Builder().url(fullUrl).build()
+        val fullUrl = "wss://$scheme/call/$roomId?token=${token.take(20)}...&mode=$mode"
+        Log.d("SignalingClient", "🔍 [DEBUG] Connecting to: wss://$scheme/call/$roomId")
+        
+        val request = Request.Builder().url("wss://$scheme/call/$roomId?token=$token&mode=$mode").build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.d("SignalingClient", "🔍 [DEBUG] ========== WEBSOCKET OPENED ==========")
+                Log.d("SignalingClient", "🔍 [DEBUG] mode=$mode, responseCode=${response.code}")
                 listener.onWebSocketOpen()
-                Log.d("SignalingClient", "WebSocket connection opened (mode=$mode).")
+                
                 if (mode == "talk") {
                     sendIdentifyPacket()
                 } else {
@@ -112,13 +121,28 @@ class SignalingClient(private val listener: SignalingListener, private val backe
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                Log.d("SignalingClient", "🔍 [DEBUG] ========== WEBSOCKET CLOSING ==========")
+                Log.d("SignalingClient", "🔍 [DEBUG] code=$code, reason=$reason, userInitiated=$userInitiatedDisconnect")
                 listener.onWebSocketClosed()
                 // schedule reconnect only when not a user-initiated close
-                if (!userInitiatedDisconnect) scheduleReconnectIfNeeded()
+                if (!userInitiatedDisconnect) {
+                    Log.d("SignalingClient", "🔍 [DEBUG] Triggering reconnect schedule (not user-initiated)")
+                    scheduleReconnectIfNeeded()
+                } else {
+                    Log.d("SignalingClient", "🔍 [DEBUG] Skipping reconnect (user-initiated disconnect)")
+                }
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Log.e("SignalingClient", "🔍 [DEBUG] ========== WEBSOCKET FAILURE ==========")
+                Log.e("SignalingClient", "🔍 [DEBUG] error=${t.message}, responseCode=${response?.code}, userInitiated=$userInitiatedDisconnect")
+                Log.e("SignalingClient", "🔍 [DEBUG] Stack trace:", t)
                 listener.onError("Connection failed: ${t.message}")
-                if (!userInitiatedDisconnect) scheduleReconnectIfNeeded()
+                if (!userInitiatedDisconnect) {
+                    Log.d("SignalingClient", "🔍 [DEBUG] Triggering reconnect schedule after failure")
+                    scheduleReconnectIfNeeded()
+                } else {
+                    Log.d("SignalingClient", "🔍 [DEBUG] Skipping reconnect after failure (user-initiated disconnect)")
+                }
             }
         })
     }
@@ -180,17 +204,27 @@ class SignalingClient(private val listener: SignalingListener, private val backe
     private val reconnectHandler = android.os.Handler(android.os.Looper.getMainLooper())
     
     private fun scheduleReconnectIfNeeded() {
-        if (reconnecting) return
+        Log.d("SignalingClient", "🔍 [DEBUG] scheduleReconnectIfNeeded: reconnecting=$reconnecting, userInitiated=$userInitiatedDisconnect")
+        
+        if (reconnecting) {
+            Log.d("SignalingClient", "🔍 [DEBUG] Already reconnecting, skipping")
+            return
+        }
+        
         // If we don't have connection params (room/token) or token is blank,
         // don't attempt automatic reconnects. This prevents reconnect loops
         // when the user is not logged in or token has been cleared elsewhere.
         val roomNow = lastRoomId
         val tokenNow = lastToken
+        Log.d("SignalingClient", "🔍 [DEBUG] Checking credentials: room=$roomNow, tokenLength=${tokenNow?.length ?: 0}")
+        
         if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
-            Log.d("SignalingClient", "Not scheduling reconnect: missing room or token (room=$roomNow, tokenBlank=${tokenNow.isNullOrBlank()})")
+            Log.d("SignalingClient", "🔍 [DEBUG] ❌ NOT scheduling reconnect: missing room or token (room=$roomNow, tokenBlank=${tokenNow.isNullOrBlank()})")
             listener.onReconnectFailed()
             return
         }
+        
+        Log.d("SignalingClient", "🔍 [DEBUG] ✅ Credentials valid, proceeding with reconnect logic")
 
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
             Log.d("SignalingClient", "Max reconnect attempts reached: $reconnectAttempts, will retry with longer delay")
