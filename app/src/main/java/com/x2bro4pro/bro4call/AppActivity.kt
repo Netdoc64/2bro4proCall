@@ -361,19 +361,26 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         signalingClient = SignalingClient(this, BACKEND_HOST)
         // Auto-connect if token exists
         val savedToken = authClient.getToken()
+        Log.d("AppActivity", "🔍 [DEBUG] Auto-Login Check: token=${if (savedToken != null) "EXISTS" else "NULL"}")
+        
         if (savedToken != null) {
             val displayName = authClient.getDisplayName()
             val domains = authClient.getDomains()
             val domain = domains.firstOrNull() ?: DOMAIN_ID
+            Log.d("AppActivity", "🔍 [DEBUG] Auto-Login: displayName=$displayName, domain=$domain, domainsCount=${domains.size}")
+            
             // Generiere vollständige Room-ID mit Session
             val roomId = generateCallRoomId(domain)
             currentRoom = roomId
             currentToken = savedToken
             currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
             
+            Log.d("AppActivity", "🔍 [DEBUG] Auto-Login: roomId=$roomId, role=$currentRole")
+            
             statusTextView.text = "Status: ✅ Auto-Login${if (displayName != null) " - $displayName" else ""}"
             updateRoleBasedUI(currentRole)
             
+            Log.d("AppActivity", "🔍 [DEBUG] Triggering WebSocket connect to: $roomId")
             signalingClient.connect(roomId, savedToken)
             
             // Service starten bei Auto-Login
@@ -1350,9 +1357,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private fun assignQueueToAgent(sessionId: String, domainName: String) {
         val token = currentToken ?: return
         
-        // Check permission
+        // Check permission (API v2.2: call.assign)
         if (!authClient.hasPermission("call.assign")) {
-            Toast.makeText(this, "Keine Berechtigung zum Zuweisen", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Keine Berechtigung zum Zuweisen (call.assign erforderlich)", Toast.LENGTH_SHORT).show()
             return
         }
         
@@ -2143,11 +2150,19 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     if (response.isSuccessful && body != null) {
                         try {
                             val json = JSONObject(body)
-                            if (json.getBoolean("success")) {
-                                val domainsArray = json.getJSONArray("domains")
+                            // API v2.2: Flexible parsing for success wrapper or direct domains array
+                            val domainsArray = if (json.has("success") && json.getBoolean("success")) {
+                                json.getJSONArray("domains")
+                            } else if (json.has("domains")) {
+                                json.getJSONArray("domains")
+                            } else {
+                                null
+                            }
+                            
+                            if (domainsArray != null) {
                                 showDomainList(domainsArray)
                             } else {
-                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error", "Keine Domains gefunden")}", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2318,11 +2333,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     if (response.isSuccessful && body != null) {
                         try {
                             val json = JSONObject(body)
-                            if (json.getBoolean("success")) {
-                                Toast.makeText(this@AppActivity, "Domain erfolgreich aktualisiert", Toast.LENGTH_SHORT).show()
+                            // API v2.2: Response is { status: "updated" }
+                            val status = json.optString("status", "")
+                            if (status == "updated" || json.optBoolean("success", false)) {
+                                Toast.makeText(this@AppActivity, "✅ Domain erfolgreich aktualisiert", Toast.LENGTH_SHORT).show()
                                 openDomainManagement() // Refresh list
                             } else {
-                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error", "Unbekannter Fehler")}", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2367,6 +2384,10 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             hint = "Rollenname (z.B. 'agent', 'supervisor')"
         }
         
+        val descriptionInput = android.widget.EditText(this).apply {
+            hint = "Beschreibung (z.B. 'Kundenbetreuung')"
+        }
+        
         val levelInput = android.widget.EditText(this).apply {
             hint = "Level (0-100, höher = mehr Rechte)"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
@@ -2379,6 +2400,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         container.addView(android.widget.TextView(this).apply { text = "Rollenname:" })
         container.addView(nameInput)
+        container.addView(android.widget.TextView(this).apply { 
+            text = "Beschreibung:"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(descriptionInput)
         container.addView(android.widget.TextView(this).apply { 
             text = "Level (0-100):"
             setPadding(0, 20, 0, 0)
@@ -2400,11 +2426,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setView(container)
             .setPositiveButton("Erstellen") { _, _ ->
                 val name = sanitizeInput(nameInput.text.toString())
+                val description = sanitizeInput(descriptionInput.text.toString())
                 val levelStr = levelInput.text.toString()
                 val permissionsText = permissionsInput.text.toString().trim()
                 
                 if (name.isEmpty()) {
                     Toast.makeText(this, "Rollenname erforderlich", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                if (description.isEmpty()) {
+                    Toast.makeText(this, "Beschreibung erforderlich", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 
@@ -2415,18 +2447,19 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     emptyList()
                 }
                 
-                createRole(name, level, permissions)
+                createRole(name, description, level, permissions)
             }
             .setNegativeButton("Abbrechen", null)
             .show()
     }
     
-    private fun createRole(name: String, level: Int, permissions: List<String>) {
+    private fun createRole(name: String, description: String, level: Int, permissions: List<String>) {
         val token = currentToken ?: return
         val url = "https://call-server.netdoc64.workers.dev/api/admin/roles"
         
         val bodyJson = JSONObject().apply {
             put("name", name)
+            put("description", description)  // API v2.2 required field
             put("level", level)
             put("permissions", JSONArray(permissions))
         }
@@ -2453,10 +2486,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     if (response.isSuccessful && body != null) {
                         try {
                             val json = JSONObject(body)
-                            if (json.getBoolean("success")) {
-                                Toast.makeText(this@AppActivity, "✅ Rolle '$name' erstellt", Toast.LENGTH_SHORT).show()
+                            // API v2.2: Response is { status: "created", roleId: "..." }
+                            val status = json.optString("status", "")
+                            if (status == "created" || json.optBoolean("success", false)) {
+                                val roleId = json.optString("roleId", "")
+                                Toast.makeText(this@AppActivity, "✅ Rolle erstellt${if (roleId.isNotEmpty()) " ($roleId)" else ""}", Toast.LENGTH_SHORT).show()
+                                showRoleList()
                             } else {
-                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error", "Unbekannter Fehler")}", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2471,7 +2508,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     private fun showRoleList() {
         val token = currentToken ?: return
-        val url = "https://call-server.netdoc64.workers.dev/api/admin/roles"
+        val url = "https://call-server.netdoc64.workers.dev/api/admin/data"
         
         val request = Request.Builder()
             .url(url)
@@ -2494,11 +2531,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     if (response.isSuccessful && body != null) {
                         try {
                             val json = JSONObject(body)
-                            if (json.getBoolean("success")) {
-                                val rolesArray = json.getJSONArray("roles")
+                            // API v2.2: /api/admin/data returns { users: [], domains: [], roles: [] }
+                            val rolesArray = json.optJSONArray("roles")
+                            if (rolesArray != null && rolesArray.length() > 0) {
                                 displayRoleList(rolesArray)
                             } else {
-                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@AppActivity, "Keine Rollen gefunden", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2564,6 +2602,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private fun editRole(role: JSONObject) {
         val roleId = role.getString("id")
         val currentName = role.getString("name")
+        val currentDescription = role.optString("description", "")
         val currentLevel = role.optInt("level", 0)
         val currentPermissions = role.optJSONArray("permissions")
         val permStr = if (currentPermissions != null) {
@@ -2578,6 +2617,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val nameInput = android.widget.EditText(this).apply {
             hint = "Rollenname"
             setText(currentName)
+        }
+        
+        val descriptionInput = android.widget.EditText(this).apply {
+            hint = "Beschreibung"
+            setText(currentDescription)
         }
         
         val levelInput = android.widget.EditText(this).apply {
@@ -2599,6 +2643,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         container.addView(android.widget.TextView(this).apply { text = "Rollenname:" })
         container.addView(nameInput)
         container.addView(android.widget.TextView(this).apply { 
+            text = "Beschreibung:"
+            setPadding(0, 20, 0, 0)
+        })
+        container.addView(descriptionInput)
+        container.addView(android.widget.TextView(this).apply { 
             text = "Level (0-100):"
             setPadding(0, 20, 0, 0)
         })
@@ -2614,6 +2663,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setView(container)
             .setPositiveButton("Speichern") { _, _ ->
                 val newName = sanitizeInput(nameInput.text.toString())
+                val newDescription = sanitizeInput(descriptionInput.text.toString())
                 val levelStr = levelInput.text.toString()
                 val permissionsText = permissionsInput.text.toString().trim()
                 
@@ -2629,18 +2679,19 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     emptyList()
                 }
                 
-                updateRole(roleId, newName, level, permissions)
+                updateRole(roleId, newName, newDescription, level, permissions)
             }
             .setNegativeButton("Abbrechen", null)
             .show()
     }
     
-    private fun updateRole(roleId: String, name: String, level: Int, permissions: List<String>) {
+    private fun updateRole(roleId: String, name: String, description: String, level: Int, permissions: List<String>) {
         val token = currentToken ?: return
         val url = "https://call-server.netdoc64.workers.dev/api/admin/roles/$roleId"
         
         val bodyJson = JSONObject().apply {
             put("name", name)
+            put("description", description)  // API v2.2 field
             put("level", level)
             put("permissions", JSONArray(permissions))
         }
@@ -2667,11 +2718,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     if (response.isSuccessful && body != null) {
                         try {
                             val json = JSONObject(body)
-                            if (json.getBoolean("success")) {
+                            // API v2.2: Response is { status: "updated" }
+                            val status = json.optString("status", "")
+                            if (status == "updated" || json.optBoolean("success", false)) {
                                 Toast.makeText(this@AppActivity, "✅ Rolle aktualisiert", Toast.LENGTH_SHORT).show()
                                 showRoleList() // Refresh
                             } else {
-                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error", "Unbekannter Fehler")}", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2723,10 +2776,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     if (response.isSuccessful && body != null) {
                         try {
                             val json = JSONObject(body)
-                            if (json.getBoolean("success")) {
+                            // API v2.2: Response is { status: "deleted" }
+                            val status = json.optString("status", "")
+                            if (status == "deleted" || json.optBoolean("success", false)) {
                                 Toast.makeText(this@AppActivity, "✅ Rolle '$roleName' gelöscht", Toast.LENGTH_SHORT).show()
+                                showRoleList()
                             } else {
-                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error")}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@AppActivity, "Fehler: ${json.optString("error", "Unbekannter Fehler")}", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@AppActivity, "JSON-Parse-Fehler: ${e.message}", Toast.LENGTH_LONG).show()
