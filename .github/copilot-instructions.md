@@ -5,14 +5,16 @@
 
 **Package:** `com.x2bro4pro.bro4call`  
 **Backend:** `call-server.netdoc64.workers.dev` (Cloudflare Workers)  
-**Backend API:** v2.2 (see API_ENDPOINTS.md, API_REFERENCE.md)  
-**Min SDK:** 24 | **Target SDK:** 34 | **Gradle:** 8.1.1 | **AGP:** 8.1.1 | **Kotlin:** 1.9.0
+**Backend API:** v2.3 (see API_ENDPOINTS.md, API_REFERENCE.md)  
+**Min SDK:** 24 | **Target SDK:** 34 | **Gradle:** 8.1.1 | **AGP:** 8.1.1 | **Kotlin:** 1.9.0  
+**Release:** v2.2.0 (Nov 24, 2025) - APK: 47MB minified with R8/ProGuard
 
 **Key Files:**
-- `AppActivity.kt` (~3150 lines) - Main UI controller with admin features, queue management, analytics
+- `AppActivity.kt` (~3400 lines) - Main UI controller with admin features, queue management, analytics
 - `CallService.kt` (405 lines) - Foreground service for persistent WebSocket connections
-- `SignalingClient.kt` (250 lines) - WebSocket manager with intelligent reconnection logic
+- `SignalingClient.kt` (290 lines) - WebSocket manager with intelligent reconnection logic
 - `AuthClient.kt` (444 lines) - REST authentication with encrypted credential storage and permission system
+- `ErrorReporter.kt` (285 lines) - **NEW**: Error reporting client for API v2.3 backend integration
 - `BootReceiver.kt` - Auto-starts CallService after device reboot
 
 ## Architecture & Data Flow
@@ -61,27 +63,48 @@ Web Visitor → Backend WebSocket → CallService (foreground) → Notification
 3. **SignalingClient** - WebSocket manager with intelligent reconnection
    - URL format: `wss://{HOST}/call/{roomId}?token={token}&mode={mode}`
    - Modes: `talk` (agent), `listen` (supervisor monitoring)
+   - **Constructor:** `SignalingClient(listener, host, errorReporter?)` - errorReporter is optional
    - **Exponential backoff:** Delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s (max 60s) with ±20% jitter
    - Resets to mid-backoff at max attempts instead of giving up (continues with 2min delay)
    - **Heartbeat:** Sends `{"type":"ping"}` every 30s to keep connection alive
    - Validates `lastRoomId` and `lastToken` before reconnect attempts (prevents logout loops)
+   - **Error Reporting:** Reports WebSocket failures to backend (if errorReporter provided)
    - Uses OkHttp with 20s ping interval, 10s connect timeout, 30s read/write timeout
 
 4. **AuthClient** (444 lines) - REST authentication using `EncryptedSharedPreferences`
    - Endpoints: `/api/login`, `/api/register`
-   - **API v2.2 Response:** `{ token, user: { id, email, displayName, roles[], permissions[], allowedDomains[] } }`
+   - **API v2.3 Response:** `{ token, user: { id, email, displayName, roles[], permissions[], allowedDomains[] } }`
    - Storage keys: `jwt_token`, `user_id`, `user_email`, `display_name`, `user_roles`, `user_permissions`, `allowed_domains`, `active_room_id`
    - Uses `MasterKeys.AES256_GCM_SPEC` for credential encryption
    - Max 3 retries with `retryOnConnectionFailure=true`
    - **Permission checking:** `hasPermission(permission: String)` checks for `*` (SuperAdmin) or specific permission
    - **New methods:** `getUserId()`, `getEmail()`, `getDisplayName()`, `getRoles()`, `getPermissions()`
 
-5. **BootReceiver** - Auto-starts `CallService` after device reboot
+5. **ErrorReporter** (285 lines) - **NEW**: Error reporting client for API v2.3
+   - Endpoint: `/api/errors/report` (anonymous, optional auth for user linking)
+   - **Error Types:** crash, network, webrtc, permission, ui, other
+   - **Severity Levels:** fatal, error, warning, info
+   - **Auto-collection:** Device info (model, OS, screen size), stack traces (max 10k chars)
+   - **Integration points:**
+     - Global crash handler (writes to `last_crash.log` + reports to backend)
+     - WebRTC failures (ICE disconnected/failed)
+     - Network errors (HTTP request failures)
+     - Permission denials (RECORD_AUDIO, POST_NOTIFICATIONS)
+     - WebSocket failures (via SignalingClient)
+   - **Convenience methods:** `reportCrash()`, `reportNetworkError()`, `reportWebRTCError()`, `reportPermissionError()`
+   - See ERROR_REPORTING.md for usage examples
+
+6. **MyFirebaseMessagingService** - FCM push notification handler
+   - Channels: `fcm_notifications` (default), `incoming_call_channel` (high-priority calls)
+   - Auto-registers FCM token with backend on refresh
+   - Triggers `CallService` to show incoming call notifications
+
+7. **NetworkChangeReceiver** - Monitors WiFi ↔ Mobile transitions, triggers SignalingClient reconnection
+
+8. **BootReceiver** - Auto-starts `CallService` after device reboot
    - Only starts if valid JWT token exists
    - Loads or generates room ID from `AuthClient.getRoomId()`
    - Handles `IllegalStateException` for service start failures
-
-6. **NetworkChangeReceiver** - Triggers reconnection on network change (WiFi ↔ Mobile)
 
 ## Critical Developer Conventions
 
@@ -119,8 +142,8 @@ AuthClient(context, "https://call-server.netdoc64.workers.dev")
 ```
 Mixing these causes connection failures.
 
-### WebRTC Message Format (API v2.2)
-**NEW:** Backend uses `data` property for WebRTC messages:
+### WebRTC Message Format (API v2.3)
+Backend uses `data` property for WebRTC messages:
 ```kotlin
 // Sending (Client → Server)
 JSONObject().apply {
@@ -201,6 +224,8 @@ private val serviceConnection = object : ServiceConnection {
 - **Workflow:** `.github/workflows/android_build.yml`
 - **JDK Version:** 17 (required for Gradle 8.0+)
 - **Artifacts:** Uploads `app-debug.apk` via `actions/upload-artifact@v4`
+- **Note:** Debug builds are auto-signed with debug keystore; release builds require manual signing (see SIGNING_GUIDE.md)
+- **Note:** Debug builds are auto-signed with debug keystore; release builds require manual signing (see SIGNING_GUIDE.md)
 
 ### Firebase Setup
 - **Project:** `bro4call`
@@ -297,6 +322,17 @@ if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
 **Cause:** Rapid token refresh during development  
 **Fix:** Disable auto-sending in `MyFirebaseMessagingService.onNewToken()` for debug builds
 
+## API v2.3 Features
+**Error Reporting System** (IMPLEMENTED):
+- **Public Endpoint:** `/api/errors/report` - Anonymous error submission (no auth required)
+- **Platforms:** iOS, Android, Web, Desktop
+- **Error Types:** crash, network, webrtc, permission, ui, other
+- **Severity Levels:** fatal, error, warning, info
+- **Admin Endpoint:** `/api/admin/errors` - Dashboard for error management with resolution workflow
+- **Client Integration:** `ErrorReporter.kt` handles all error reporting with automatic device info collection
+- **Auto-reporting:** Global crash handler, WebRTC failures, network errors, permission denials
+- See ERROR_REPORTING.md for complete documentation
+
 ## Testing Checklist
 - [ ] Login/Register with backend (credentials stored encrypted)
 - [ ] WebSocket connects after login (check "WebSocket connection opened" log)
@@ -306,10 +342,14 @@ if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
 - [ ] Device reboot → `BootReceiver` restarts service (if logged in)
 - [ ] Network loss → reconnection backoff (check "Reconnecting attempt X" logs)
 - [ ] Battery optimization dialog shown on first run
-- [ ] **NEW:** Queue Management - View waiting calls, assign to agent, delete
-- [ ] **NEW:** Outgoing Calls - Agent initiates call → generates visitor link → copy/share
-- [ ] **NEW:** Analytics Dashboard - Real-time metrics with queuedCalls, avgWaitTime, missedToday, agentActivity
-- [ ] **NEW:** User CRUD - Create/Edit/Delete users with role/domain assignment
-- [ ] **NEW:** Role Management - Create/Edit/Delete roles with permission arrays
-- [ ] **NEW:** Domain Management - Edit domain name, aliases[], toggle is_active status
-- [ ] **NEW:** Permission checks - hasPermission() validates user access for all admin features
+- [ ] Queue Management - View waiting calls, assign to agent, delete
+- [ ] Outgoing Calls - Agent initiates call → generates visitor link → copy/share
+- [ ] Analytics Dashboard - Real-time metrics (queuedCalls, avgWaitTime, missedToday, agentActivity)
+- [ ] User CRUD - Create/Edit/Delete users with role/domain assignment
+- [ ] Role Management - Create/Edit/Delete roles with permission arrays (includes description field)
+- [ ] Domain Management - Edit domain name, aliases[], toggle is_active status
+- [ ] Permission checks - hasPermission() validates user access for all admin features
+- [ ] **NEW:** Error Reporting - Crashes, network errors, WebRTC failures auto-reported to backend
+- [ ] **NEW:** Permission denials reported (RECORD_AUDIO, POST_NOTIFICATIONS)
+- [ ] Domain Management - Edit domain name, aliases[], toggle is_active status
+- [ ] Permission checks - hasPermission() validates user access for all admin features
