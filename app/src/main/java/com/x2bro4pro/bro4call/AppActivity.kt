@@ -124,6 +124,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         return "${domainId}__${sessionId}"
     }
     private lateinit var authClient: AuthClient
+    private lateinit var errorReporter: ErrorReporter
     
     // CallService Integration
     private var callService: CallService? = null
@@ -208,15 +209,45 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // --- Activity Lifecycle ---
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Global crash logger: write uncaught exceptions to a file so user can retrieve them
+        
+        // Initialize ErrorReporter
+        val appVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "1.0"
+        }
+        errorReporter = ErrorReporter(
+            context = applicationContext,
+            backendBaseUrl = "https://$BACKEND_HOST",
+            appVersion = appVersion
+        )
+        
+        // Global crash handler: write to file AND report to backend
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
+                // Write to local file (für User-Debugging)
                 val sw = StringWriter()
                 throwable.printStackTrace(PrintWriter(sw))
                 val text = "Timestamp: ${java.time.Instant.now()}\nThread: ${thread.name}\n" + sw.toString()
                 val f = File(filesDir, "last_crash.log")
                 f.writeText(text)
+                
+                // Report to backend (mit Auth-Token falls vorhanden)
+                val token = try {
+                    authClient.getToken()
+                } catch (e: Exception) {
+                    null
+                }
+                errorReporter.reportCrash(
+                    message = "App crashed: ${throwable.message ?: "Unknown error"}",
+                    throwable = throwable,
+                    context = mapOf(
+                        "thread" to thread.name,
+                        "screen" to "AppActivity"
+                    ),
+                    authToken = token
+                )
             } catch (e: Exception) {
                 // ignore
             }
@@ -336,12 +367,33 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 Toast.makeText(this, "Audio permission is required for calls", Toast.LENGTH_LONG).show()
                 // Disable call/connect UI to prevent errors
                 findViewById<Button>(R.id.connect_button).isEnabled = false
+                
+                // Report permission denial
+                errorReporter.reportPermissionError(
+                    message = "RECORD_AUDIO permission denied by user",
+                    context = mapOf(
+                        "permission" to "RECORD_AUDIO",
+                        "screen" to "AppActivity"
+                    ),
+                    authToken = null // User not logged in yet
+                )
             }
         } else if (requestCode == REQ_POST_NOTIFICATIONS) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Benachrichtigungen aktiviert", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Benachrichtigungen deaktiviert. Sie werden keine Anruf-Benachrichtigungen erhalten.", Toast.LENGTH_LONG).show()
+                
+                // Report notification permission denial (warning level)
+                errorReporter.reportPermissionError(
+                    message = "POST_NOTIFICATIONS permission denied - user won't receive call alerts",
+                    context = mapOf(
+                        "permission" to "POST_NOTIFICATIONS",
+                        "screen" to "AppActivity",
+                        "impact" to "missed_calls"
+                    ),
+                    authToken = null
+                )
             }
         }
     }
@@ -358,7 +410,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private fun startClientsAndAutoConnect() {
         initializeWebRTC()
         authClient = AuthClient(this, "https://$BACKEND_HOST")
-        signalingClient = SignalingClient(this, BACKEND_HOST)
+        signalingClient = SignalingClient(this, BACKEND_HOST, errorReporter)
         // Auto-connect if token exists
         val savedToken = authClient.getToken()
         Log.d("AppActivity", "🔍 [DEBUG] Auto-Login Check: token=${if (savedToken != null) "EXISTS" else "NULL"}")
@@ -1781,6 +1833,18 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         call.enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
                 activeCalls.remove(call)
+                
+                // Report network error
+                errorReporter.reportNetworkError(
+                    message = "Failed to load queue: ${e.message}",
+                    throwable = e,
+                    context = mapOf(
+                        "endpoint" to "/api/admin/queue",
+                        "action" to "load_queue"
+                    ),
+                    authToken = token
+                )
+                
                 safeRunOnUiThread {
                     Toast.makeText(this@AppActivity, "Fehler: ${e.message}", Toast.LENGTH_LONG).show()
                     statusTextView.text = "Status: Fehler"
@@ -3232,10 +3296,31 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             activity?.runOnUiThread { activity.updateConnectionQuality("excellent") }
                         PeerConnection.IceConnectionState.CHECKING -> 
                             activity?.runOnUiThread { activity.updateConnectionQuality("good") }
-                        PeerConnection.IceConnectionState.DISCONNECTED -> 
+                        PeerConnection.IceConnectionState.DISCONNECTED -> {
                             activity?.runOnUiThread { activity.updateConnectionQuality("poor") }
-                        PeerConnection.IceConnectionState.FAILED -> 
+                            // Report WebRTC connection issue
+                            activity?.errorReporter?.reportWebRTCError(
+                                message = "WebRTC ICE connection disconnected",
+                                context = mapOf(
+                                    "state" to "DISCONNECTED",
+                                    "call_id" to (activity.activeCallSessionId ?: "unknown")
+                                ),
+                                authToken = activity.currentToken
+                            )
+                        }
+                        PeerConnection.IceConnectionState.FAILED -> {
                             activity?.runOnUiThread { activity.updateConnectionQuality("bad") }
+                            // Report critical WebRTC failure
+                            activity?.errorReporter?.reportWebRTCError(
+                                message = "WebRTC ICE connection failed - no connectivity established",
+                                context = mapOf(
+                                    "state" to "FAILED",
+                                    "call_id" to (activity.activeCallSessionId ?: "unknown"),
+                                    "severity" to "critical"
+                                ),
+                                authToken = activity.currentToken
+                            )
+                        }
                         else -> {}
                     }
                 }

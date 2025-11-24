@@ -288,7 +288,8 @@ class CallService : Service(), SignalingListener {
     private fun connectWebSocket(roomId: String, token: String) {
         try {
             if (signalingClient == null) {
-                signalingClient = SignalingClient(this, "call-server.netdoc64.workers.dev")
+                // CallService doesn't have ErrorReporter - pass null (optional parameter)
+                signalingClient = SignalingClient(this, "call-server.netdoc64.workers.dev", null)
             }
             signalingClient?.connect(roomId, token)
             Log.d(TAG, "Connecting WebSocket: $roomId")

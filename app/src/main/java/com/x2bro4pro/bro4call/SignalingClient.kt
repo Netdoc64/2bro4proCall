@@ -16,7 +16,11 @@ interface SignalingListener {
     fun onReconnectFailed()
 }
 
-class SignalingClient(private val listener: SignalingListener, private val backendHost: String) {
+class SignalingClient(
+    private val listener: SignalingListener, 
+    private val backendHost: String,
+    private val errorReporter: ErrorReporter? = null
+) {
     companion object {
         private val client by lazy {
             OkHttpClient.Builder()
@@ -136,6 +140,21 @@ class SignalingClient(private val listener: SignalingListener, private val backe
                 Log.e("SignalingClient", "🔍 [DEBUG] ========== WEBSOCKET FAILURE ==========")
                 Log.e("SignalingClient", "🔍 [DEBUG] error=${t.message}, responseCode=${response?.code}, userInitiated=$userInitiatedDisconnect")
                 Log.e("SignalingClient", "🔍 [DEBUG] Stack trace:", t)
+                
+                // Report to backend if not user-initiated
+                if (!userInitiatedDisconnect && errorReporter != null) {
+                    errorReporter.reportNetworkError(
+                        message = "WebSocket connection failed: ${t.message}",
+                        throwable = t,
+                        context = mapOf(
+                            "response_code" to (response?.code?.toString() ?: "none"),
+                            "backend_host" to backendHost,
+                            "reconnect_attempt" to reconnectAttempts.toString()
+                        ),
+                        authToken = null // Will be added by caller if available
+                    )
+                }
+                
                 listener.onError("Connection failed: ${t.message}")
                 if (!userInitiatedDisconnect) {
                     Log.d("SignalingClient", "🔍 [DEBUG] Triggering reconnect schedule after failure")
