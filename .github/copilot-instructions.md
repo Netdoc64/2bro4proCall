@@ -7,35 +7,99 @@
 **Backend:** `call-server.netdoc64.workers.dev` (Cloudflare Workers)  
 **Backend API:** v2.3 (see API_ENDPOINTS.md, API_REFERENCE.md)  
 **Min SDK:** 24 | **Target SDK:** 34 | **Gradle:** 8.1.1 | **AGP:** 8.1.1 | **Kotlin:** 1.9.0  
-**Release:** v2.2.0 (Nov 24, 2025) - APK: 47MB minified with R8/ProGuard
+**Current Release:** v2.3.0 (Nov 24, 2025) - APK: ~55MB debug-signed
 
 **Key Files:**
-- `AppActivity.kt` (~3400 lines) - Main UI controller with admin features, queue management, analytics
+- `AppActivity.kt` (~3450 lines) - Main UI controller with Queue-Polling, admin features, analytics
 - `CallService.kt` (405 lines) - Foreground service for persistent WebSocket connections
 - `SignalingClient.kt` (290 lines) - WebSocket manager with intelligent reconnection logic
 - `AuthClient.kt` (444 lines) - REST authentication with encrypted credential storage and permission system
-- `ErrorReporter.kt` (285 lines) - **NEW**: Error reporting client for API v2.3 backend integration
+- `ErrorReporter.kt` (285 lines) - Error reporting client for API v2.3 backend integration
 - `BootReceiver.kt` - Auto-starts CallService after device reboot
 
 ## Architecture & Data Flow
 
 ### Core Component Interactions
 ```
-Web Visitor → Backend WebSocket → CallService (foreground) → Notification
-                                         ↓                        ↓
-                                   SignalingClient         (User taps)
-                                         ↓                        ↓
-                                   AppActivity ← Service Binding →
-                                         ↓
-                                 PeerConnectionClient (WebRTC)
+Web Visitor → Backend /api/public/initiate_call → Creates Room (status: queued)
+                                                          ↓
+Agent Login → Queue Polling (GET /api/agent/queues) ← Backend Queue
+   ↓ (every 5s)                                           ↓
+RecyclerView shows waiting visitors                       ↓
+   ↓                                                       ↓
+Agent clicks visitor → WebSocket connect to visitor's room_id
+   ↓                                                       ↓
+WebRTC Offer/Answer Exchange → Audio Call Active
+```
+
+### Queue-Based Call Flow (NEW in v2.3)
+1. **Visitor creates room**: `POST /api/public/initiate_call` → Backend creates room with status "queued"
+   - Room appears in agent's queue
+   - ❌ NO ringtone/notification yet - just visible in list
+2. **Agent sees queue**: Two options:
+   - **WebSocket (RECOMMENDED)**: `WS /api/agent/notifications` → Receives "new_call" event (silent, just updates list)
+   - **Polling (Fallback)**: `GET /api/agent/queues` every 5 seconds → Updates RecyclerView
+3. **Agent chooses action**:
+   - **"Chat" Button**: Agent joins room via WebSocket → Chat only (no WebRTC)
+   - **"Anrufen" Button**: Agent joins room → Sends WebRTC Offer → Call starts
+4. **Ringing triggered by action** (not by room creation!):
+   - Agent clicks "Anrufen" → Backend sends `{ type: "call_ringing" }` to Visitor → Visitor's browser plays ringtone 🔔
+   - Visitor clicks "Anrufen" in room → Backend sends `{ type: "call_ringing" }` to Agent → Agent's app plays ringtone 🔔
+5. **Communication**:
+   - **Chat**: WebSocket messages `{ type: "chat", text: "..." }` (works without WebRTC)
+   - **Audio Call**: WebRTC (Offer/Answer/ICE) after both parties joined and one clicked "Anrufen"
+
+### Ringing/Notification Mechanism
+**Status Transitions:** `queued → ringing → active → completed/missed/cancelled`
+
+**Important:** Ringtone is NOT played on room creation - only when someone clicks "Anrufen"!
+
+**WebSocket Notifications (Recommended):**
+```kotlin
+// Connect to notification hub after login
+val notificationWS = SignalingClient(listener, "call-server.netdoc64.workers.dev")
+notificationWS.connect("agent/notifications", token) // Special endpoint
+
+// Receive events
+{ type: "new_call", room_id, domain_id, timestamp } → Update queue list (silent)
+{ type: "call_ringing", room_id, initiator } → Play ringtone 🔔 (someone clicked "Anrufen")
+{ type: "call_active", room_id } → Update UI (WebRTC established)
+{ type: "call_ended", room_id, reason } → Cleanup
+```
+
+**Chat vs Audio Call:**
+```kotlin
+// Chat (WebSocket only - no WebRTC needed)
+val chatMsg = JSONObject().apply {
+    put("type", "chat")
+    put("text", "Hello")
+    put("targetSessionId", visitorId)
+}
+signalingClient.send(chatMsg)
+
+// Audio Call (WebRTC)
+webRtcClient.createOffer() // Triggers "call_ringing" event
+```
+
+**Polling Fallback (Current Implementation):**
+```kotlin
+// Every 5 seconds
+GET /api/agent/queues → Check for new rooms
+Update RecyclerView → Show waiting visitors
+// NO automatic ringtone - agent must click "Anrufen"
 ```
 
 ### Key Components
-1. **AppActivity** (~3150 lines) - Main UI controller implementing `SignalingListener`
+1. **AppActivity** (~3450 lines) - Main UI controller implementing `SignalingListener`
    - Contains **embedded inner classes:**
      - `VisitorAdapter` (line ~1575) - RecyclerView adapter for live visitor list
      - `PeerConnectionClient` (line 1603) - WebRTC client with audio track management
-   - **Admin Features (NEW):**
+   - **Queue-Polling System (v2.3):**
+     - Polls `GET /api/agent/queues` every 5 seconds after login
+     - Displays waiting visitors in RecyclerView (status: "queued" or "ringing")
+     - Agent connects to visitor's **existing room_id** (does NOT create own room)
+     - Handler-based polling: `startQueuePolling()`, `stopQueuePolling()`, `fetchQueuedCalls()`
+   - **Admin Features:**
      - Queue Management: View waiting calls, assign to agents, delete entries
        - Permissions: `call.view.all`, `call.assign`, `call.manage`
      - Outgoing Calls: Agent-initiated calls with visitor link generation (copy/share)
@@ -351,5 +415,3 @@ if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
 - [ ] Permission checks - hasPermission() validates user access for all admin features
 - [ ] **NEW:** Error Reporting - Crashes, network errors, WebRTC failures auto-reported to backend
 - [ ] **NEW:** Permission denials reported (RECORD_AUDIO, POST_NOTIFICATIONS)
-- [ ] Domain Management - Edit domain name, aliases[], toggle is_active status
-- [ ] Permission checks - hasPermission() validates user access for all admin features

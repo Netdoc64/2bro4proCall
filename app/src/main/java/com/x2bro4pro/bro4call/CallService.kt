@@ -58,25 +58,32 @@ class CallService : Service(), SignalingListener {
         
         when (intent?.action) {
             ACTION_START_SERVICE -> {
-                val roomId = intent.getStringExtra(EXTRA_ROOM_ID)
+                val roomId = intent.getStringExtra(EXTRA_ROOM_ID)  // kann null sein!
                 val token = intent.getStringExtra(EXTRA_TOKEN)
                 
-                if (roomId != null && token != null) {
-                    currentRoomId = roomId
+                if (token != null) {
                     currentToken = token
                     
-                    // Nur starten wenn noch nicht läuft
-                    if (!isConnected) {
-                        startForegroundService()
-                        connectWebSocket(roomId, token)
-                    } else {
-                        Log.d(TAG, "Service already running and connected")
-                        // Update mit neuen Credentials falls nötig
-                        if (currentRoomId != roomId || currentToken != token) {
-                            Log.d(TAG, "Credentials changed, reconnecting...")
-                            disconnectWebSocket()
+                    // Nur Foreground Service starten (für FCM)
+                    startForegroundService()
+                    
+                    if (roomId != null) {
+                        // Legacy: Wenn Room ID mitgegeben wird, WebSocket connecten
+                        Log.d(TAG, "Starting with room: $roomId")
+                        currentRoomId = roomId
+                        if (!isConnected) {
                             connectWebSocket(roomId, token)
+                        } else {
+                            // Update mit neuen Credentials falls nötig
+                            if (currentRoomId != roomId) {
+                                Log.d(TAG, "Room changed, reconnecting...")
+                                disconnectWebSocket()
+                                connectWebSocket(roomId, token)
+                            }
                         }
+                    } else {
+                        // FCM-only Mode: Kein WebSocket, nur Push Notifications
+                        Log.d(TAG, "Starting in FCM-only mode (no WebSocket room)")
                     }
                 } else {
                     Log.e(TAG, "Missing room_id or token")
@@ -107,14 +114,13 @@ class CallService : Service(), SignalingListener {
         super.onTaskRemoved(rootIntent)
         Log.d(TAG, "Task removed (app swiped away), restarting service...")
         
-        // Restart service wenn App aus Recent Apps entfernt wurde
-        val savedRoomId = currentRoomId
+        // Restart service in FCM-only mode (no fixed WebSocket room)
         val savedToken = currentToken
         
-        if (savedRoomId != null && savedToken != null) {
+        if (savedToken != null) {
             val restartIntent = Intent(applicationContext, CallService::class.java).apply {
                 action = ACTION_START_SERVICE
-                putExtra(EXTRA_ROOM_ID, savedRoomId)
+                // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
                 putExtra(EXTRA_TOKEN, savedToken)
             }
             

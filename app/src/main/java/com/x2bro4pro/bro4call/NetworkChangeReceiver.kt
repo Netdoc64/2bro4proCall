@@ -47,13 +47,12 @@ class NetworkChangeReceiver : BroadcastReceiver() {
                     // Check if user is logged in
                     val authClient = AuthClient(context, "https://call-server.netdoc64.workers.dev")
                     val savedToken = authClient.getToken()
-                    val savedRoomId = authClient.getRoomId()
                     
-                    if (savedToken != null && savedRoomId != null) {
-                        // Restart CallService to reconnect WebSocket
+                    if (savedToken != null) {
+                        // Restart CallService in FCM-only mode (no WebSocket room)
                         val serviceIntent = Intent(context, CallService::class.java).apply {
                             action = CallService.ACTION_START_SERVICE
-                            putExtra(CallService.EXTRA_ROOM_ID, savedRoomId)
+                            // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
                             putExtra(CallService.EXTRA_TOKEN, savedToken)
                         }
                         

@@ -90,14 +90,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val savedToken = authClient.getToken()
             
             if (savedToken != null) {
-                val domains = authClient.getDomains()
-                val domain = domains.firstOrNull() ?: "tarba_schlusseldienst"
-                val sessionId = java.util.UUID.randomUUID().toString()
-                val roomId = "${domain}__${sessionId}"
-                
+                // Start CallService in FCM-only mode (no WebSocket room)
                 val serviceIntent = Intent(this, CallService::class.java).apply {
                     action = CallService.ACTION_START_SERVICE
-                    putExtra(CallService.EXTRA_ROOM_ID, roomId)
+                    // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
                     putExtra(CallService.EXTRA_TOKEN, savedToken)
                 }
                 
@@ -107,7 +103,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     startService(serviceIntent)
                 }
                 
-                Log.d(TAG, "CallService started via FCM")
+                Log.d(TAG, "CallService started via FCM (no fixed room)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start CallService", e)
@@ -195,8 +191,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val prefs = getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE)
         prefs.edit().putString("fcm_token", token).apply()
         
-        // TODO: Send to backend via AuthClient or API call
-        // This should be done after user login
+        // Note: Token is sent to backend when user logs in (via AppActivity.sendFcmTokenToBackend())
         Log.d(TAG, "FCM Token stored locally: $token")
     }
 }

@@ -55,6 +55,7 @@ data class Visitor(
     val domain: String,
     val callerName: String,
     val logoUrl: String?,
+    val roomId: String? = null, // Room ID vom Backend (für Queue-based Calls)
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -86,7 +87,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private lateinit var chatMessagesView: TextView
     private lateinit var connectionQualityView: TextView
     private lateinit var visitorCountBadge: TextView
+    private lateinit var menuButton: Button
+    private lateinit var userInfoBadge: TextView
     // NOTE: visitorDataTextView ist das alte Element, das wir hier nicht mehr explizit nutzen.
+
+    // Bug #19 fix: Track popup window for cleanup
+    private var currentPopupWindow: android.widget.PopupWindow? = null
 
     // Daten und Clients
     private lateinit var signalingClient: SignalingClient
@@ -99,6 +105,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     // HTTP Call tracking for cleanup
     private val activeCalls = mutableListOf<okhttp3.Call>()
+    
+    // Queue Polling System
+    private var queuePollingHandler: android.os.Handler? = null
+    private var queuePollingRunnable: Runnable? = null
+    private val QUEUE_POLL_INTERVAL_MS = 5000L // 5 Sekunden
     
     // Supervisor Monitoring
     private var isMonitoring = false
@@ -275,6 +286,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         chatMessagesView = findViewById(R.id.chat_messages_view)
         connectionQualityView = findViewById(R.id.connection_quality_view)
         visitorCountBadge = findViewById(R.id.visitor_count_badge)
+        menuButton = findViewById(R.id.menu_button)
+        userInfoBadge = findViewById(R.id.user_info_badge)
+        
+        // Menu Button Listener
+        menuButton.setOnClickListener { showMenuPopup() }
         
         // Enter-Taste zum Senden aktivieren
         chatInput.setOnEditorActionListener { _, actionId, _ ->
@@ -284,28 +300,23 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             } else false
         }
 
-        // Login/Register visible buttons
-        loginButton.setOnClickListener { performLoginUI() }
-        registerButton.setOnClickListener { performRegisterUI() }
-        adminButton.setOnClickListener { openAdminPanel() }
-        supervisorButton.setOnClickListener { openSupervisorPanel() }
-        connectButton.setOnClickListener { performManualReconnect() }
-        
-        // Admin/Supervisor Buttons initial versteckt
+        // Auth-Buttons ausblenden (werden durch Header-Menu ersetzt)
+        loginButton.visibility = View.GONE
+        registerButton.visibility = View.GONE
         adminButton.visibility = View.GONE
         supervisorButton.visibility = View.GONE
+        connectButton.visibility = View.GONE
         
         // 2. Adapter und RecyclerView
-        visitorAdapter = VisitorAdapter(liveVisitors, this::generateOffer, this)
+        visitorAdapter = VisitorAdapter(liveVisitors, this::generateOffer, this::enterChatRoom, this)
         liveVisitorsRecyclerView.layoutManager = LinearLayoutManager(this)
         liveVisitorsRecyclerView.adapter = visitorAdapter
         
         // 3. Event Listener
         callEndButton.setOnClickListener { endCall() }
         chatSendButton.setOnClickListener { sendChatMessage() }
+        connectButton.setOnClickListener { performManualReconnect() }  // Set once here
         
-        // Manual reconnect wird über separate Funktion gehandled (siehe connectButton.setOnClickListener oben)
-
         // 4. Ensure audio permission before initializing WebRTC and network clients
         ensureAudioPermissionThenInit()
 
@@ -417,26 +428,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         if (savedToken != null) {
             val displayName = authClient.getDisplayName()
-            val domains = authClient.getDomains()
-            val domain = domains.firstOrNull() ?: DOMAIN_ID
-            Log.d("AppActivity", "🔍 [DEBUG] Auto-Login: displayName=$displayName, domain=$domain, domainsCount=${domains.size}")
-            
-            // Generiere vollständige Room-ID mit Session
-            val roomId = generateCallRoomId(domain)
-            currentRoom = roomId
             currentToken = savedToken
-            currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
+            // Safer role extraction
+            currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
+                (roleMap["name"] as? String)
+            }
             
-            Log.d("AppActivity", "🔍 [DEBUG] Auto-Login: roomId=$roomId, role=$currentRole")
+            Log.d("AppActivity", "🔍 [DEBUG] Auto-Login: displayName=$displayName, role=$currentRole")
             
             statusTextView.text = "Status: ✅ Auto-Login${if (displayName != null) " - $displayName" else ""}"
             updateRoleBasedUI(currentRole)
             
-            Log.d("AppActivity", "🔍 [DEBUG] Triggering WebSocket connect to: $roomId")
-            signalingClient.connect(roomId, savedToken)
+            // Agent startet Queue-Polling statt festen Room
+            startQueuePolling()
             
-            // Service starten bei Auto-Login
-            startCallService(roomId, savedToken)
+            // Service starten bei Auto-Login (nur FCM, kein fester Room)
+            startCallServiceForFcm(savedToken)
         } else {
             // prompt login
             statusTextView.text = "Status: Bitte anmelden"
@@ -463,6 +470,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        
+        // Stop queue polling (Bug #17)
+        stopQueuePolling()
+        
+        // Stop ringtone and release MediaPlayer (Bug #18)
+        stopRingtone()
+        
+        // Dismiss popup if showing (Bug #19)
+        currentPopupWindow?.dismiss()
+        currentPopupWindow = null
+        
         if (isServiceBound) {
             unbindService(serviceConnection)
             isServiceBound = false
@@ -485,7 +503,10 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val userId = authClient.getUserId()
         val displayName = authClient.getDisplayName()
         val domains = authClient.getDomains()
-        currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
+        // Safer role extraction
+        currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
+            (roleMap["name"] as? String)
+        }
         
         statusTextView.text = "Status: Auto-Login erfolgreich${if (displayName != null) " - $displayName" else ""}"
         
@@ -494,15 +515,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         // Domain-Auswahl und Verbindung
         if (domains.isNotEmpty()) {
-            showDomainSelectionAndConnect(domains, token)
-        } else {
-            val roomId = generateCallRoomId(DOMAIN_ID)
-            currentRoom = roomId
-            signalingClient.connect(roomId, token)
+            // Agent: Starte Queue-Polling statt festen Room
+            startQueuePolling()
         }
         
-        // CallService starten für Hintergrund-Anrufe
-        startCallService(currentRoom ?: generateCallRoomId(DOMAIN_ID), token)
+        // CallService starten für Hintergrund-Anrufe (nur FCM, kein fester Room)
+        startCallServiceForFcm(token)
     }
     
     private fun performLoginUI() {
@@ -581,26 +599,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             
                             statusTextView.text = "Status: ✅ Login erfolgreich${if (displayName != null) " - $displayName" else ""}"
                             currentToken = token
-                            currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
-                            
-                            // Remember Me: Token ist bereits gespeichert von AuthClient
-                            // Bei Checkbox-Deaktivierung Token löschen
-                            if (!rememberCheckbox.isChecked) {
-                                // Note: AuthClient speichert bereits, wir tun nichts extra
-                                Toast.makeText(this@AppActivity, "ℹ️ Session nur für diese Sitzung", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(this@AppActivity, "✅ Anmeldung gespeichert", Toast.LENGTH_SHORT).show()
+                            // Safer role extraction
+                            currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
+                                (roleMap["name"] as? String)
                             }
+                            
+                            Toast.makeText(this@AppActivity, "✅ Angemeldet${if (rememberCheckbox.isChecked) " - gespeichert" else ""}", Toast.LENGTH_SHORT).show()
                             
                             updateRoleBasedUI(currentRole)
                             
-                            if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
-                                val roomId = generateCallRoomId(DOMAIN_ID)
-                                currentRoom = roomId
-                                signalingClient.connect(roomId, token)
-                            }
+                            // Agent erstellt KEINEN Room - nur Queue-Polling starten
+                            statusTextView.text = "Status: ✅ Eingeloggt - warte auf Anrufe..."
+                            startQueuePolling()
                             
-                            startCallService(currentRoom ?: generateCallRoomId(DOMAIN_ID), token)
+                            // CallService starten (nur für FCM Push Notifications, KEIN WebSocket Room)
+                            // Agent connectet erst bei Chat/Anruf zu Visitor's Room
+                            startCallServiceForFcm(token)
                         }
                     }
 
@@ -708,16 +722,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                                 
                                 statusTextView.text = "Status: ✅ Registrierung erfolgreich${if (displayName != null) " - $displayName" else ""}"
                                 currentToken = token
-                                currentRole = authClient.getRoles().firstOrNull()?.get("name") as? String
+                                // Safer role extraction
+                                currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
+                                    (roleMap["name"] as? String)
+                                }
                                 updateRoleBasedUI(currentRole)
                                 
                                 Toast.makeText(this@AppActivity, "✅ Account erstellt und angemeldet", Toast.LENGTH_SHORT).show()
                                 
-                                if (domains.isNotEmpty()) showDomainSelectionAndConnect(domains, token) else {
-                                    val roomId = generateCallRoomId(DOMAIN_ID)
-                                    currentRoom = roomId
-                                    signalingClient.connect(roomId, token)
-                                }
+                                // Agent: Queue-Polling starten statt Room erstellen
+                                startQueuePolling()
+                                startCallServiceForFcm(token)
                             }
                         }
 
@@ -752,30 +767,18 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             dialog.show()
         }
 
+    // DEPRECATED: Agent erstellt keinen festen Room mehr
     private fun showDomainSelectionAndConnect(domains: List<String>, token: String) {
-        runOnUiThread {
-            val arr = domains.toTypedArray()
-            AlertDialog.Builder(this)
-                .setTitle("Wähle Domain")
-                .setItems(arr) { _, which ->
-                    val domain = arr[which]
-                    val roomId = generateCallRoomId(domain)
-                    statusTextView.text = "Status: Verbinde zu $domain"
-                    currentRoom = roomId
-                    currentToken = token
-                    signalingClient.connect(roomId, token)
-                }
-                .setCancelable(true)
-                .show()
-        }
+        Log.w("AppActivity", "showDomainSelectionAndConnect is deprecated - Agent uses queue-polling")
+        // Agent: Queue-Polling wurde bereits gestartet
+        statusTextView.text = "Status: ✅ Angemeldet - warte auf Anrufe"
     }
 
     // --- UI Management ---
     private fun showVisitorsTab() {
         liveVisitorsRecyclerView.visibility = View.VISIBLE
         activeCallLayout.visibility = View.GONE
-        // Reconnect nur anzeigen wenn nicht verbunden
-        updateConnectionUI(isConnected = false)
+        // Note: Connection UI wird durch WebSocket callbacks gemanaged (onWebSocketOpen, etc.)
     }
     
     private fun showActiveCallTab(visitor: Visitor) {
@@ -862,6 +865,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     }
                 }
                 "chat" -> handleChatMessage(message)
+                "call_ringing" -> handleCallRinging(message)
                 else -> Log.w("AppActivity", "Unknown message type: $type")
             }
         }
@@ -885,7 +889,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             sessionId = sessionId,
             domain = message.optString("domain", "N/A"),
             callerName = "Besucher von ${message.optString("domain", "N/A")}",
-            logoUrl = message.optString("profileImage")
+            logoUrl = message.optString("profileImage"),
+            roomId = message.optString("roomId", sessionId) // roomId vom Backend oder sessionId als Fallback
         )
         liveVisitors.add(newVisitor)
         visitorAdapter.notifyItemInserted(liveVisitors.size - 1)
@@ -906,12 +911,152 @@ class AppActivity : AppCompatActivity(), SignalingListener {
 
     // --- Anruf Logik ---
     
-    // Agent ruft Besucher proaktiv an
-    // Backend erstellt dynamische CallRoom: DOMAIN_ID__SESSION_ID
-    fun generateOffer(visitor: Visitor) {
+    // Agent betritt Chat-Room (nur WebSocket, KEIN WebRTC)
+    private fun enterChatRoom(visitor: Visitor) {
+        // Erst WebSocket verbinden, KEIN WebRTC
+        val roomId = visitor.roomId ?: visitor.sessionId
+        val token = currentToken ?: run {
+            Toast.makeText(this, "Fehler: Kein Token", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // State changes AFTER validation
         activeCallSessionId = visitor.sessionId
         showActiveCallTab(visitor)
-
+        
+        Log.d("AppActivity", "Entering chat room: $roomId (NO WebRTC)")
+        currentRoom = roomId
+        signalingClient.connect(roomId, token)
+        
+        activeCallInfo.text = "Chat mit ${visitor.callerName} - Klicke Anrufen für Audio"
+        Toast.makeText(this, "💬 Chat aktiv - Nur Text, kein Audio", Toast.LENGTH_SHORT).show()
+    }
+    
+    // Handle call_ringing event from Notificator WebSocket
+    private fun handleCallRinging(message: JSONObject) {
+        val roomId = message.optString("room_id", "")
+        val initiator = message.optString("initiator", "unknown")
+        
+        Log.d("AppActivity", "Call ringing: room=$roomId, initiator=$initiator")
+        
+        // Play ringtone
+        playRingtone()
+        
+        // Update status
+        safeRunOnUiThread {
+            statusTextView.text = "Status: 📞 Eingehender Anruf..."
+        }
+        
+        // Show incoming call dialog
+        safeRunOnUiThread {
+            val visitor = liveVisitors.find { it.roomId == roomId || it.sessionId == roomId }
+            val callerName = visitor?.callerName ?: "Unbekannter Besucher"
+            
+            AlertDialog.Builder(this)
+                .setTitle("📞 Eingehender Anruf")
+                .setMessage("$callerName möchte Sie anrufen")
+                .setPositiveButton("Annehmen") { _, _ ->
+                    stopRingtone()
+                    if (visitor != null) {
+                        // Join room WITH WebRTC (prepare to receive offer)
+                        acceptIncomingCall(visitor)
+                    }
+                }
+                .setNegativeButton("Ablehnen") { _, _ ->
+                    stopRingtone()
+                    // Send decline signal
+                    val declineMsg = JSONObject().apply {
+                        put("type", "call_declined")
+                        put("roomId", roomId)
+                    }
+                    signalingClient.send(declineMsg)
+                }
+                .setCancelable(false)
+                .show()
+        }
+    }
+    
+    // Agent akzeptiert eingehenden Anruf (bereitet WebRTC vor)
+    private fun acceptIncomingCall(visitor: Visitor) {
+        // Zum Room verbinden und auf WebRTC Offer warten
+        val roomId = visitor.roomId ?: visitor.sessionId
+        val token = currentToken ?: run {
+            Toast.makeText(this, "Fehler: Kein Token", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // State changes AFTER validation
+        activeCallSessionId = visitor.sessionId
+        showActiveCallTab(visitor)
+        
+        Log.d("AppActivity", "Accepting incoming call from room: $roomId")
+        currentRoom = roomId
+        signalingClient.connect(roomId, token)
+        
+        activeCallInfo.text = "Eingehender Anruf von ${visitor.callerName}..."
+        Toast.makeText(this, "📞 Warte auf Verbindung...", Toast.LENGTH_SHORT).show()
+        
+        // WebRTC wird automatisch durch handleIncomingOffer() initialisiert
+    }
+    
+    private var mediaPlayer: android.media.MediaPlayer? = null
+    
+    private fun playRingtone() {
+        try {
+            stopRingtone() // Stop existing ringtone
+            
+            // Use default ringtone
+            val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
+            mediaPlayer = android.media.MediaPlayer().apply {
+                setDataSource(this@AppActivity, ringtoneUri)
+                setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+            
+            Log.d("AppActivity", "Ringtone started")
+        } catch (e: Exception) {
+            Log.e("AppActivity", "Failed to play ringtone: ${e.message}")
+        }
+    }
+    
+    private fun stopRingtone() {
+        try {
+            mediaPlayer?.apply {
+                if (isPlaying) stop()
+                release()
+            }
+            mediaPlayer = null
+            Log.d("AppActivity", "Ringtone stopped")
+        } catch (e: Exception) {
+            Log.e("AppActivity", "Failed to stop ringtone: ${e.message}")
+        }
+    }
+    
+    // Agent verbindet zu Visitor's Room und initiiert Anruf
+    private fun generateOffer(visitor: Visitor) {
+        // Erst zum Visitor's Room verbinden
+        val roomId = visitor.roomId ?: visitor.sessionId
+        val token = currentToken ?: run {
+            Toast.makeText(this, "Fehler: Kein Token", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // State changes AFTER validation
+        activeCallSessionId = visitor.sessionId
+        showActiveCallTab(visitor)
+        
+        Log.d("AppActivity", "Connecting to visitor room: $roomId")
+        currentRoom = roomId
+        signalingClient.connect(roomId, token)
+        
+        // WebRTC Offer erstellen und senden
         webRtcClient.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {
                 webRtcClient.peerConnection?.setLocalDescription(this, sdp)
@@ -922,13 +1067,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                         put("sdp", sdp.description)
                     })
                     put("targetSessionId", visitor.sessionId)
-                    // HINWEIS: Backend erstellt automatisch CallRoom mit ID: 
-                    // currentRoom (DOMAIN_ID) + "__" + visitor.sessionId
                 }
                 signalingClient.send(offer)
-                activeCallInfo.text = "Warte auf Annahme durch ${visitor.callerName}..."
+                activeCallInfo.text = "Verbinde mit ${visitor.callerName}..."
+                Log.d("AppActivity", "WebRTC Offer sent to room $roomId")
             }
-            override fun onCreateFailure(s: String) { Log.e("WebRTC", "Offer failed: $s") }
+            override fun onCreateFailure(s: String) { 
+                Log.e("WebRTC", "Offer failed: $s")
+                Toast.makeText(this@AppActivity, "Anruf fehlgeschlagen: $s", Toast.LENGTH_SHORT).show()
+            }
             override fun onSetFailure(s: String) { Log.e("WebRTC", "SetLocalDesc failed: $s") }
             override fun onSetSuccess() {}
         })
@@ -944,7 +1091,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         statusTextView.text = "Status: Eingehender Anruf!"
         
         val callerSessionId = message.optString("sessionId") 
-        val caller = liveVisitors.find { it.sessionId == callerSessionId } ?: Visitor(callerSessionId, "N/A", "Web Visitor", null)
+        val caller = liveVisitors.find { it.sessionId == callerSessionId } 
+            ?: Visitor(
+                sessionId = callerSessionId,
+                domain = "N/A",
+                callerName = "Web Visitor",
+                logoUrl = null,
+                roomId = callerSessionId  // Use sessionId as roomId fallback
+            )
         
         activeCallSessionId = callerSessionId
         showActiveCallTab(caller)
@@ -985,8 +1139,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         activeCallSessionId = null
         chatMessagesView.text = ""  // Chat-Verlauf löschen
         showVisitorsTab()
-        // WICHTIG: Signalisiere dem Worker, dass der Anruf beendet ist
-        signalingClient.send(JSONObject().put("type", "hangup"))
+        // WICHTIG: Signalisiere dem Worker, dass der Anruf beendet ist (nur wenn connected)
+        try {
+            signalingClient.send(JSONObject().put("type", "hangup"))
+        } catch (e: Exception) {
+            Log.w("AppActivity", "Failed to send hangup (WebSocket not connected): ${e.message}")
+        }
     }
     
     // --- Chat-Funktionen ---
@@ -1018,7 +1176,16 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
             .format(java.util.Date())
         val newMessage = "[$timestamp] $sender: $text\n"
-        chatMessagesView.text = currentText + newMessage
+        
+        // Limit to last 100 messages to prevent memory leak
+        val lines = currentText.lines()
+        val limitedText = if (lines.size > 100) {
+            lines.takeLast(99).joinToString("\n") + "\n"
+        } else {
+            currentText
+        }
+        
+        chatMessagesView.text = limitedText + newMessage
         
         // Auto-scroll zu neuester Nachricht
         chatMessagesView.post {
@@ -1028,41 +1195,141 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
     }
     
+    // --- Menu Popup ---
+    
+    private fun showMenuPopup() {
+        // Dismiss previous popup if showing (Bug #19)
+        currentPopupWindow?.dismiss()
+        
+        val popupView = layoutInflater.inflate(R.layout.menu_popup_glass, null)
+        val popupWindow = android.widget.PopupWindow(
+            popupView,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        
+        // Track popup for cleanup
+        currentPopupWindow = popupWindow
+        
+        // Menu Items
+        val menuUserSection = popupView.findViewById<View>(R.id.menu_user_section)
+        val menuUserName = popupView.findViewById<TextView>(R.id.menu_user_name)
+        val menuUserRole = popupView.findViewById<TextView>(R.id.menu_user_role)
+        val menuDivider1 = popupView.findViewById<View>(R.id.menu_divider_1)
+        val menuDivider2 = popupView.findViewById<View>(R.id.menu_divider_2)
+        val menuAdmin = popupView.findViewById<Button>(R.id.menu_admin)
+        val menuSupervisor = popupView.findViewById<Button>(R.id.menu_supervisor)
+        val menuReconnect = popupView.findViewById<Button>(R.id.menu_reconnect)
+        val menuLogout = popupView.findViewById<Button>(R.id.menu_logout)
+        val menuLogin = popupView.findViewById<Button>(R.id.menu_login)
+        val menuRegister = popupView.findViewById<Button>(R.id.menu_register)
+        
+        // Configure menu based on login state
+        if (currentToken != null) {
+            // Logged in
+            menuUserSection.visibility = View.VISIBLE
+            menuDivider1.visibility = View.VISIBLE
+            menuDivider2.visibility = View.VISIBLE
+            menuLogout.visibility = View.VISIBLE
+            menuLogin.visibility = View.GONE
+            menuRegister.visibility = View.GONE
+            
+            // User info
+            menuUserName.text = authClient.getDisplayName() ?: authClient.getEmail() ?: "Agent"
+            menuUserRole.text = currentRole?.replaceFirstChar { it.uppercase() } ?: "Agent"
+            
+            // Role-based items
+            when (currentRole) {
+                "superadmin" -> {
+                    menuAdmin.visibility = View.VISIBLE
+                    menuSupervisor.visibility = View.VISIBLE
+                }
+                "supervisor" -> {
+                    menuAdmin.visibility = View.GONE
+                    menuSupervisor.visibility = View.VISIBLE
+                }
+                else -> {
+                    menuAdmin.visibility = View.GONE
+                    menuSupervisor.visibility = View.GONE
+                }
+            }
+            
+            // Reconnect button
+            menuReconnect.visibility = View.VISIBLE
+            
+        } else {
+            // Not logged in
+            menuUserSection.visibility = View.GONE
+            menuDivider1.visibility = View.GONE
+            menuDivider2.visibility = View.GONE
+            menuAdmin.visibility = View.GONE
+            menuSupervisor.visibility = View.GONE
+            menuReconnect.visibility = View.GONE
+            menuLogout.visibility = View.GONE
+            menuLogin.visibility = View.VISIBLE
+            menuRegister.visibility = View.VISIBLE
+        }
+        
+        // Click listeners
+        menuAdmin.setOnClickListener {
+            popupWindow.dismiss()
+            openAdminPanel()
+        }
+        
+        menuSupervisor.setOnClickListener {
+            popupWindow.dismiss()
+            openSupervisorPanel()
+        }
+        
+        menuReconnect.setOnClickListener {
+            popupWindow.dismiss()
+            performManualReconnect()
+        }
+        
+        menuLogout.setOnClickListener {
+            popupWindow.dismiss()
+            performLogout()
+        }
+        
+        menuLogin.setOnClickListener {
+            popupWindow.dismiss()
+            performLoginUI()
+        }
+        
+        menuRegister.setOnClickListener {
+            popupWindow.dismiss()
+            performRegisterUI()
+        }
+        
+        // Show popup anchored to menu button
+        popupWindow.elevation = 10f
+        popupWindow.showAsDropDown(menuButton, -200, 0)
+    }
+    
     // --- Admin/Supervisor Funktionen ---
     
     private fun updateRoleBasedUI(role: String?) {
-        when (role) {
-            "superadmin" -> {
-                adminButton.visibility = View.VISIBLE
-                supervisorButton.visibility = View.VISIBLE
+        // Update User Badge in Header
+        if (currentToken != null) {
+            val displayName = authClient.getDisplayName()
+            val email = authClient.getEmail()
+            val initials = when {
+                displayName != null && displayName.length >= 2 -> displayName.substring(0, 2).uppercase()
+                email != null && email.length >= 2 -> email.substring(0, 2).uppercase()
+                else -> "AG"
             }
-            "supervisor" -> {
-                adminButton.visibility = View.GONE
-                supervisorButton.visibility = View.VISIBLE
-            }
-            else -> {
-                adminButton.visibility = View.GONE
-                supervisorButton.visibility = View.GONE
-            }
+            userInfoBadge.text = initials
+            userInfoBadge.visibility = View.VISIBLE
+        } else {
+            userInfoBadge.visibility = View.GONE
         }
-        // Nach Login: Login/Register ausblenden
-        updateAuthUI(isLoggedIn = true)
     }
     
     private fun updateAuthUI(isLoggedIn: Boolean) {
-        if (isLoggedIn) {
-            loginButton.visibility = View.GONE
-            registerButton.visibility = View.GONE
-            // Logout-Button als Text in connect_button anzeigen
-            connectButton.text = "Logout"
-            connectButton.isEnabled = true
-            connectButton.setOnClickListener { performLogout() }
-        } else {
-            loginButton.visibility = View.VISIBLE
-            registerButton.visibility = View.VISIBLE
-            connectButton.text = "🔄 Manueller Reconnect"
-            connectButton.setOnClickListener { performManualReconnect() }
-        }
+        // Header Badge wird durch updateRoleBasedUI() gemanaged
+        // Alte Button-Logik ist jetzt im Menu-Popup
+        updateRoleBasedUI(currentRole)
     }
     
     private fun performManualReconnect() {
@@ -1072,20 +1339,20 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             return
         }
         val token = currentToken ?: authClient.getToken()
-        val room = currentRoom ?: run {
-            val domains = authClient.getDomains()
-            val domain = domains.firstOrNull() ?: DOMAIN_ID
-            generateCallRoomId(domain)
-        }
         if (token != null) {
-            statusTextView.text = "Status: Manueller Verbindungsaufbau..."
+            statusTextView.text = "Status: Neustarte Queue-Polling..."
             liveVisitors.clear()
             visitorAdapter.notifyDataSetChanged()
-            signalingClient.connect(room, token)
-            currentRoom = room
+            
+            // Agent: Restart queue-polling statt Room-Connect
+            stopQueuePolling()
+            startQueuePolling()
+            
             currentToken = token
             findViewById<ProgressBar>(R.id.reconnect_progress).visibility = View.VISIBLE
             connectButton.visibility = View.GONE
+            
+            Toast.makeText(this, "🔄 Queue-Polling neugestartet", Toast.LENGTH_SHORT).show()
         } else {
             performLoginUI()
         }
@@ -1101,16 +1368,17 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 connectButton.visibility = View.VISIBLE
                 connectButton.text = "🔄 Reconnect"
                 connectButton.isEnabled = true
-                connectButton.setOnClickListener { performManualReconnect() }
+                // OnClickListener already set in onCreate() - don't re-set to avoid memory leaks
             }
         }
     }
     
-    private fun startCallService(roomId: String, token: String) {
+    // Start CallService NUR für FCM Push Notifications (kein WebSocket Room)
+    private fun startCallServiceForFcm(token: String) {
         try {
             val serviceIntent = Intent(this, CallService::class.java).apply {
                 action = CallService.ACTION_START_SERVICE
-                putExtra(CallService.EXTRA_ROOM_ID, roomId)
+                // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
                 putExtra(CallService.EXTRA_TOKEN, token)
             }
             
@@ -1123,12 +1391,18 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             // Service binden für Kommunikation
             bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
             
-            Log.d("AppActivity", "CallService started")
-            Toast.makeText(this, "✅ Anruf-Service aktiv", Toast.LENGTH_SHORT).show()
+            Log.d("AppActivity", "CallService started (FCM only, no WebSocket room)")
+            Toast.makeText(this, "✅ Anruf-Service aktiv (FCM)", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e("AppActivity", "Failed to start CallService", e)
             Toast.makeText(this, "Fehler beim Starten des Services: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+    
+    // Legacy function (nur noch für alte Code-Pfade falls nötig)
+    private fun startCallService(roomId: String, token: String) {
+        Log.w("AppActivity", "startCallService(roomId) is deprecated - Agent should not have fixed room")
+        startCallServiceForFcm(token)
     }
     
     private fun stopCallService() {
@@ -1234,8 +1508,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setTitle("🚪 Abmelden")
             .setMessage("Möchten Sie sich wirklich abmelden?")
             .setPositiveButton("Abmelden") { _, _ ->
+                // Stop queue polling
+                stopQueuePolling()
+                
                 // Disconnect WebSocket
                 signalingClient.disconnect()
+                
+                // Stop CallService
+                stopCallService()
                 
                 // Clear auth data
                 authClient.clearToken()
@@ -1245,19 +1525,132 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 currentRole = null
                 currentRoom = null
                 activeCallSessionId = null
+                val oldSize = liveVisitors.size
                 liveVisitors.clear()
-                visitorAdapter.notifyDataSetChanged()
+                if (oldSize > 0) {
+                    visitorAdapter.notifyItemRangeRemoved(0, oldSize)
+                }
                 
-                // Hide role-based buttons
+                // Hide role-based buttons (alte Buttons im Layout falls noch vorhanden)
                 adminButton.visibility = View.GONE
                 supervisorButton.visibility = View.GONE
                 activeCallLayout.visibility = View.GONE
+                
+                // Hide User Badge
+                userInfoBadge.visibility = View.GONE
+                
+                // Reset Auth UI
+                updateAuthUI(isLoggedIn = false)
                 
                 statusTextView.text = "Status: Abgemeldet"
                 Toast.makeText(this, "✅ Erfolgreich abgemeldet", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Abbrechen", null)
             .show()
+    }
+    
+    // --- Queue Polling System ---
+    
+    private fun startQueuePolling() {
+        Log.d("AppActivity", "Starting queue polling...")
+        stopQueuePolling() // Stop existing polling if any
+        
+        queuePollingHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        queuePollingRunnable = object : Runnable {
+            override fun run() {
+                fetchQueuedCalls()
+                queuePollingHandler?.postDelayed(this, QUEUE_POLL_INTERVAL_MS)
+            }
+        }
+        queuePollingHandler?.post(queuePollingRunnable!!)
+    }
+    
+    private fun stopQueuePolling() {
+        queuePollingRunnable?.let {
+            queuePollingHandler?.removeCallbacks(it)
+        }
+        queuePollingHandler = null
+        queuePollingRunnable = null
+        Log.d("AppActivity", "Queue polling stopped")
+    }
+    
+    private fun fetchQueuedCalls() {
+        val token = currentToken ?: return
+        
+        val url = "https://$BACKEND_HOST/api/agent/queues"
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        
+        val call = httpClient.newCall(req)
+        activeCalls.add(call)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                activeCalls.remove(call)
+                Log.e("AppActivity", "Queue fetch failed: ${e.message}")
+                // Don't show error to user - silent background polling
+            }
+            
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                activeCalls.remove(call)
+                response.use {
+                    if (!it.isSuccessful) {
+                        Log.e("AppActivity", "Queue fetch error: ${it.code}")
+                        return
+                    }
+                    
+                    try {
+                        val jsonData = org.json.JSONObject(it.body?.string() ?: "{}")
+                        val queues = jsonData.optJSONArray("queues") ?: org.json.JSONArray()
+                        val total = jsonData.optInt("total", 0)
+                        
+                        safeRunOnUiThread {
+                            // Clear und rebuild visitor list
+                            val oldSize = liveVisitors.size
+                            liveVisitors.clear()
+                            if (oldSize > 0) {
+                                visitorAdapter.notifyItemRangeRemoved(0, oldSize)
+                            }
+                            
+                            for (i in 0 until queues.length()) {
+                                val callObj = queues.getJSONObject(i)
+                                val callId = callObj.optString("id", "")
+                                val domainName = callObj.optString("domain_name", "Unbekannt")
+                                val domainId = callObj.optString("domain_id", "")
+                                val status = callObj.optString("status", "queued")
+                                val startTime = callObj.optString("start_time", "")
+                                
+                                // Nur queued oder ringing Calls anzeigen
+                                if (status == "queued" || status == "ringing") {
+                                    liveVisitors.add(Visitor(
+                                        sessionId = callId,
+                                        domain = domainName,
+                                        callerName = "Wartender Besucher - $domainName",
+                                        logoUrl = null,
+                                        roomId = callId // Call ID = Room ID
+                                    ))
+                                }
+                            }
+                            
+                            visitorAdapter.notifyDataSetChanged()
+                            visitorCountBadge.text = liveVisitors.size.toString()
+                            
+                            if (liveVisitors.isEmpty()) {
+                                statusTextView.text = "Status: ✅ Verbunden - keine wartenden Anrufe"
+                            } else {
+                                statusTextView.text = "Status: ✅ ${liveVisitors.size} wartende(r) Anruf(e)"
+                            }
+                            
+                            Log.d("AppActivity", "Queue updated: ${liveVisitors.size} waiting calls")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AppActivity", "Queue parse error: ${e.message}")
+                    }
+                }
+            }
+        })
     }
     
     private fun openAdminPanel() {
@@ -3233,14 +3626,18 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     // --- Hilfsklassen ---
 
     // 1. VisitorAdapter: Zeigt die Live-Besucherliste an
-    class VisitorAdapter(private val visitors: List<Visitor>, private val callAction: (Visitor) -> Unit, private val context: AppCompatActivity) 
-        : RecyclerView.Adapter<VisitorAdapter.VisitorViewHolder>() {
+    class VisitorAdapter(
+        private val visitors: List<Visitor>, 
+        private val callAction: (Visitor) -> Unit,
+        private val chatAction: (Visitor) -> Unit,
+        private val context: AppCompatActivity
+    ) : RecyclerView.Adapter<VisitorAdapter.VisitorViewHolder>() {
         
         class VisitorViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val name: TextView = view.findViewById(R.id.visitor_name)
             val domain: TextView = view.findViewById(R.id.visitor_domain)
+            val chatButton: Button = view.findViewById(R.id.chat_visitor_button)
             val callButton: Button = view.findViewById(R.id.call_visitor_button)
-            // val chatButton: Button = view.findViewById(R.id.chat_visitor_button) // Optional
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VisitorViewHolder {
@@ -3252,6 +3649,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             val visitor = visitors[position]
             holder.name.text = visitor.callerName
             holder.domain.text = visitor.domain
+            
+            // Chat Button - nur WebSocket, kein WebRTC
+            holder.chatButton.setOnClickListener {
+                chatAction(visitor)
+            }
+            
+            // Call Button - WebSocket + WebRTC
             holder.callButton.setOnClickListener {
                 callAction(visitor)
             }
@@ -3265,6 +3669,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         var peerConnection: PeerConnection? = null
         var onIceCandidateCallback: ((IceCandidate) -> Unit)? = null
         private var localAudioTrack: AudioTrack? = null
+        private var audioSource: AudioSource? = null // Bug #21: Track audioSource for disposal
         private val iceServers = listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
         )
@@ -3278,8 +3683,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
             }
             
-            val audioSource = factory.createAudioSource(audioConstraints)
-            localAudioTrack = factory.createAudioTrack("audio1", audioSource)
+            audioSource = factory.createAudioSource(audioConstraints)
+            localAudioTrack = factory.createAudioTrack("audio1", audioSource!!)
             
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
             peerConnection = factory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
@@ -3404,7 +3809,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         fun close() {
             localAudioTrack?.dispose()
             localAudioTrack = null
+            
             peerConnection?.close()
+            peerConnection = null // Bug #20: Set to null after close
+            
+            audioSource?.dispose() // Bug #21: Dispose audioSource
+            audioSource = null
         }
     }
 }

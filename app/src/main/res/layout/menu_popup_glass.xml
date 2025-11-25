@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="280dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/glass_card"
+    android:padding="8dp">
+
+    <!-- User Info Section (nur wenn eingeloggt) -->
+    <LinearLayout
+        android:id="@+id/menu_user_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:visibility="gone"
+        android:background="@drawable/glass_card_dark">
+
+        <TextView
+            android:id="@+id/menu_user_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Max Mustermann"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/menu_user_role"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Agent"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+    <View
+        android:id="@+id/menu_divider_1"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/glass_accent_2"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
+    <!-- Admin Menu Item -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/menu_admin"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🔧 Admin Panel"
+        android:textColor="@color/text_primary"
+        android:gravity="start|center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone"
+        android:textAllCaps="false"
+        android:textSize="15sp" />
+
+    <!-- Supervisor Menu Item -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/menu_supervisor"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="👁️ Supervisor Mode"
+        android:textColor="@color/text_primary"
+        android:gravity="start|center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone"
+        android:textAllCaps="false"
+        android:textSize="15sp" />
+
+    <!-- Reconnect Menu Item -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/menu_reconnect"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🔄 Reconnect"
+        android:textColor="@color/text_primary"
+        android:gravity="start|center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone"
+        android:textAllCaps="false"
+        android:textSize="15sp" />
+
+    <View
+        android:id="@+id/menu_divider_2"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/glass_accent_2"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
+
+    <!-- Logout Menu Item -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/menu_logout"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🚪 Logout"
+        android:textColor="#EF4444"
+        android:gravity="start|center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone"
+        android:textAllCaps="false"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <!-- Login Menu Item (nur wenn nicht eingeloggt) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/menu_login"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🔐 Login"
+        android:textColor="@color/neon_cyan"
+        android:gravity="start|center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textAllCaps="false"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <!-- Register Menu Item (nur wenn nicht eingeloggt) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/menu_register"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="✨ Register"
+        android:textColor="@color/text_primary"
+        android:gravity="start|center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textAllCaps="false"
+        android:textSize="15sp" />
+
+</LinearLayout>
