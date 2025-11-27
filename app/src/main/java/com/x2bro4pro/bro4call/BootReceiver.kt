@@ -30,25 +30,13 @@ class BootReceiver : BroadcastReceiver() {
                     return
                 }
                 
-                if (savedToken != null) {
-                    // Try to load saved room ID first to maintain context
-                    var roomId = authClient.getRoomId()
-                    
-                    if (roomId == null) {
-                        // Fallback: generate new room ID if none exists
-                        val domains = authClient.getDomains()
-                        val domain = domains.firstOrNull() ?: "tarba_schlusseldienst"
-                        val sessionId = java.util.UUID.randomUUID().toString()
-                        roomId = "${domain}__${sessionId}"
-                        authClient.saveRoomId(roomId)
-                    }
-                    
-                    // Start CallService
-                    val serviceIntent = Intent(context, CallService::class.java).apply {
-                        action = CallService.ACTION_START_SERVICE
-                        putExtra(CallService.EXTRA_ROOM_ID, roomId)
-                        putExtra(CallService.EXTRA_TOKEN, savedToken)
-                    }
+                // Start CallService NUR für FCM Push Notifications (kein WebSocket Room)
+                // Agent connectet erst bei Chat/Anruf zu Visitor's Room
+                val serviceIntent = Intent(context, CallService::class.java).apply {
+                    action = CallService.ACTION_START_SERVICE
+                    // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
+                    putExtra(CallService.EXTRA_TOKEN, savedToken)
+                }
                     
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.startForegroundService(serviceIntent)
@@ -56,10 +44,7 @@ class BootReceiver : BroadcastReceiver() {
                         context.startService(serviceIntent)
                     }
                     
-                    Log.d(TAG, "CallService started after boot with room: $roomId")
-                } else {
-                    Log.d(TAG, "No saved credentials, skipping service start")
-                }
+                    Log.d(TAG, "CallService started after boot (FCM only, no fixed room)")
                 } catch (e: SecurityException) {
                 Log.e(TAG, "Permission denied for service start after boot", e)
             } catch (e: IllegalStateException) {

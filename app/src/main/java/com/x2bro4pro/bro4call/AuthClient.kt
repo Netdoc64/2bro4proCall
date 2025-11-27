@@ -11,7 +11,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 
-class AuthClient(private val context: Context, private val backendBaseUrl: String) {
+class AuthClient(
+    private val context: Context, 
+    private val backendBaseUrl: String,
+    private val errorReporter: ErrorReporter? = null // FIX: ErrorReporter
+) {
     companion object {
         private const val MAX_RETRIES = 3
         
@@ -96,26 +100,26 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
                     }
                     val text = it.body?.string() ?: ""
                     try {
-                        val json = JSONObject(text)
+                        val responseJson = JSONObject(text) // Renamed to avoid shadowing outer 'json'
                         
                         // Check if registration needs approval (no token returned)
-                        val message = json.optString("message", "")
-                        if (message.isNotEmpty() && !json.has("token")) {
+                        val message = responseJson.optString("message", "")
+                        if (message.isNotEmpty() && !responseJson.has("token")) {
                             cb.onFailure("✅ $message")
                             return
                         }
                         
                         // Parse new API v2.2 response structure
-                        val token = json.optString("token", "")
-                        val userObj = json.optJSONObject("user")
+                        val token = responseJson.optString("token", "")
+                        val userObj = responseJson.optJSONObject("user")
                         if (token.isBlank() || userObj == null) {
                             cb.onFailure("Invalid response: missing token or user")
                             return
                         }
                         
                         val userId = userObj.optString("id", "")
-                        val email = userObj.optString("email", "")
-                        val displayName = userObj.optString("displayName").takeIf { it.isNotEmpty() }
+                        val userEmail = userObj.optString("email", "") // Renamed to avoid shadowing parameter 'email'
+                        val userDisplayName = userObj.optString("displayName").takeIf { it.isNotEmpty() } // Renamed to avoid shadowing parameter 'displayName'
                         val domainsArray = userObj.optJSONArray("allowedDomains")
                         val rolesArray = userObj.optJSONArray("roles")
                         val permissionsArray = userObj.optJSONArray("permissions")
@@ -130,13 +134,13 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
                         // Save all data
                         saveToken(token)
                         saveUserId(userId)
-                        saveEmail(email)
-                        saveDisplayName(displayName)
+                        saveEmail(userEmail)
+                        saveDisplayName(userDisplayName)
                         saveDomains(domains)
                         saveRoles(rolesArray)
                         savePermissions(permissionsArray)
                         
-                        cb.onSuccess(token, userId, displayName, domains)
+                        cb.onSuccess(token, userId, userDisplayName, domains)
                     } catch (e: Exception) {
                         cb.onFailure("Invalid response: ${e.message}")
                     }
@@ -182,19 +186,19 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
                     }
                     val text = it.body?.string() ?: ""
                     try {
-                        val json = JSONObject(text)
+                        val responseJson = JSONObject(text)
                         
                         // Parse new API v2.2 response structure
-                        val token = json.optString("token", "")
-                        val userObj = json.optJSONObject("user")
+                        val token = responseJson.optString("token", "")
+                        val userObj = responseJson.optJSONObject("user")
                         if (token.isBlank() || userObj == null) {
                             cb.onFailure("Login succeeded but invalid response")
                             return
                         }
                         
                         val userId = userObj.optString("id", "")
-                        val email = userObj.optString("email", "")
-                        val displayName = userObj.optString("displayName").takeIf { it.isNotEmpty() }
+                        val userEmail = userObj.optString("email", "")
+                        val userDisplayName = userObj.optString("displayName").takeIf { it.isNotEmpty() }
                         val domainsArray = userObj.optJSONArray("allowedDomains")
                         val rolesArray = userObj.optJSONArray("roles")
                         val permissionsArray = userObj.optJSONArray("permissions")
@@ -209,13 +213,13 @@ class AuthClient(private val context: Context, private val backendBaseUrl: Strin
                         // Save all data
                         saveToken(token)
                         saveUserId(userId)
-                        saveEmail(email)
-                        saveDisplayName(displayName)
+                        saveEmail(userEmail)
+                        saveDisplayName(userDisplayName)
                         saveDomains(domains)
                         saveRoles(rolesArray)
                         savePermissions(permissionsArray)
                         
-                        cb.onSuccess(token, userId, displayName, domains)
+                        cb.onSuccess(token, userId, userDisplayName, domains)
                     } catch (e: Exception) {
                         cb.onFailure("Invalid response: ${e.message}")
                     }

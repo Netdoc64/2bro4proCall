@@ -13,9 +13,9 @@ import org.json.JSONObject
 
 /**
  * Foreground Service für eingehende Anrufe
- * Hält WebSocket-Verbindung im Hintergrund aufrecht
+ * Hält Agent Notifications WebSocket im Hintergrund aufrecht
  */
-class CallService : Service(), SignalingListener {
+class CallService : Service(), AgentNotificationListener {
     
     companion object {
         const val SERVICE_ID = 1001
@@ -32,11 +32,11 @@ class CallService : Service(), SignalingListener {
     }
     
     private val binder = CallServiceBinder()
-    private var signalingClient: SignalingClient? = null
+    private var agentNotificationsClient: AgentNotificationsClient? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var isConnected = false
-    private var currentRoomId: String? = null
     private var currentToken: String? = null
+    private lateinit var errorReporter: ErrorReporter // FIX: ErrorReporter
     
     // Callback für Activity-Updates
     var onCallReceived: ((String, String) -> Unit)? = null
@@ -49,6 +49,13 @@ class CallService : Service(), SignalingListener {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
+        
+        // FIX: Initialize ErrorReporter
+        errorReporter = ErrorReporter(
+            context = applicationContext,
+            backendHost = "call-server.netdoc64.workers.dev"
+        )
+        
         createNotificationChannels()
         acquireWakeLock()
     }
@@ -58,28 +65,20 @@ class CallService : Service(), SignalingListener {
         
         when (intent?.action) {
             ACTION_START_SERVICE -> {
-                val roomId = intent.getStringExtra(EXTRA_ROOM_ID)
                 val token = intent.getStringExtra(EXTRA_TOKEN)
                 
-                if (roomId != null && token != null) {
-                    currentRoomId = roomId
+                if (token != null) {
                     currentToken = token
                     
-                    // Nur starten wenn noch nicht läuft
+                    // Start Foreground Service
+                    startForegroundService()
+                    
+                    // Connect to Agent Notifications WebSocket (nicht zu einem fixen Room!)
                     if (!isConnected) {
-                        startForegroundService()
-                        connectWebSocket(roomId, token)
-                    } else {
-                        Log.d(TAG, "Service already running and connected")
-                        // Update mit neuen Credentials falls nötig
-                        if (currentRoomId != roomId || currentToken != token) {
-                            Log.d(TAG, "Credentials changed, reconnecting...")
-                            disconnectWebSocket()
-                            connectWebSocket(roomId, token)
-                        }
+                        connectAgentNotifications(token)
                     }
                 } else {
-                    Log.e(TAG, "Missing room_id or token")
+                    Log.e(TAG, "Missing token")
                     stopSelf()
                 }
             }
@@ -98,7 +97,12 @@ class CallService : Service(), SignalingListener {
     
     override fun onDestroy() {
         Log.d(TAG, "Service destroyed")
-        disconnectWebSocket()
+        
+        // Clear callbacks to prevent memory leaks
+        onCallReceived = null
+        onConnectionStateChanged = null
+        
+        disconnectAgentNotifications()
         releaseWakeLock()
         super.onDestroy()
     }
@@ -107,32 +111,38 @@ class CallService : Service(), SignalingListener {
         super.onTaskRemoved(rootIntent)
         Log.d(TAG, "Task removed (app swiped away), restarting service...")
         
-        // Restart service wenn App aus Recent Apps entfernt wurde
-        val savedRoomId = currentRoomId
+        // FIX: Disconnect old WebSocket BEFORE restarting to prevent duplicates
+        disconnectAgentNotifications()
+        
+        // Restart service in FCM-only mode (no fixed WebSocket room)
         val savedToken = currentToken
         
-        if (savedRoomId != null && savedToken != null) {
+        if (savedToken != null) {
             val restartIntent = Intent(applicationContext, CallService::class.java).apply {
                 action = ACTION_START_SERVICE
-                putExtra(EXTRA_ROOM_ID, savedRoomId)
+                // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
                 putExtra(EXTRA_TOKEN, savedToken)
             }
             
             // Delay um Boot-Loops zu vermeiden
-            // WeakReference um Memory Leak zu vermeiden
-            val appContext = applicationContext
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        appContext.startForegroundService(restartIntent)
-                    } else {
-                        appContext.startService(restartIntent)
+            val appContextRef = java.lang.ref.WeakReference(applicationContext)
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            val restartRunnable = Runnable {
+                val ctx = appContextRef.get()
+                if (ctx != null) {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            ctx.startForegroundService(restartIntent)
+                        } else {
+                            ctx.startService(restartIntent)
+                        }
+                        Log.d(TAG, "Service restarted after task removal")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to restart service", e)
                     }
-                    Log.d(TAG, "Service restarted after task removal")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to restart service", e)
                 }
-            }, SERVICE_RESTART_DELAY_MS)
+            }
+            handler.postDelayed(restartRunnable, SERVICE_RESTART_DELAY_MS)
         }
     }
     
@@ -151,7 +161,7 @@ class CallService : Service(), SignalingListener {
     }
     
     private fun stopForegroundService() {
-        disconnectWebSocket()
+        disconnectAgentNotifications()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -223,15 +233,15 @@ class CallService : Service(), SignalingListener {
         }.build()
     }
     
-    private fun showIncomingCallNotification(sessionId: String, domain: String) {
+    private fun showIncomingCallNotification(roomId: String, domain: String) {
         val notificationIntent = Intent(this, AppActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("incoming_session_id", sessionId)
+            putExtra("incoming_room_id", roomId)
             putExtra("incoming_domain", domain)
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            sessionId.hashCode(),
+            roomId.hashCode(),
             notificationIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -243,8 +253,19 @@ class CallService : Service(), SignalingListener {
             setContentIntent(pendingIntent)
             setAutoCancel(true)
             setCategory(Notification.CATEGORY_CALL)
-            setPriority(Notification.PRIORITY_HIGH)
             
+            // FIX: Add ALL critical flags for HIGH priority + sound
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                setPriority(Notification.PRIORITY_MAX) // MAX instead of HIGH
+            }
+            
+            // FIX: Explicitly set defaults for sound and vibration
+            setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE or Notification.DEFAULT_LIGHTS)
+            
+            // FIX: Full screen intent for locked devices
+            setFullScreenIntent(pendingIntent, true)
+            
+            // Android 12+ Call Style (optional but nice)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 setStyle(Notification.CallStyle.forIncomingCall(
                     android.app.Person.Builder().setName("Besucher").build(),
@@ -255,9 +276,9 @@ class CallService : Service(), SignalingListener {
         }.build()
         
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(sessionId.hashCode(), notification)
+        notificationManager.notify(roomId.hashCode(), notification)
         
-        Log.d(TAG, "Incoming call notification shown for session: $sessionId")
+        Log.d(TAG, "CallService: Incoming call notification shown (PRIORITY_MAX + defaults): $roomId")
     }
     
     private fun acquireWakeLock() {
@@ -267,9 +288,9 @@ class CallService : Service(), SignalingListener {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "2bro4Call::CallService"
             ).apply {
-                acquire() // Unbegrenzt - wird nur bei stopSelf() released
+                acquire(10 * 60 * 1000L) // 10 Minuten Timeout
             }
-            Log.d(TAG, "Wake lock acquired (indefinite)")
+            Log.d(TAG, "Wake lock acquired (10min timeout)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to acquire wake lock", e)
         }
@@ -285,26 +306,41 @@ class CallService : Service(), SignalingListener {
         wakeLock = null
     }
     
-    private fun connectWebSocket(roomId: String, token: String) {
+    private fun connectAgentNotifications(token: String) {
         try {
-            if (signalingClient == null) {
-                // CallService doesn't have ErrorReporter - pass null (optional parameter)
-                signalingClient = SignalingClient(this, "call-server.netdoc64.workers.dev", null)
+            if (agentNotificationsClient == null) {
+                // FIX: Pass ErrorReporter
+                agentNotificationsClient = AgentNotificationsClient(
+                    this, 
+                    "call-server.netdoc64.workers.dev",
+                    token,
+                    errorReporter
+                )
             }
-            signalingClient?.connect(roomId, token)
-            Log.d(TAG, "Connecting WebSocket: $roomId")
+            agentNotificationsClient?.connect()
+            Log.d(TAG, "Connecting to Agent Notifications WebSocket")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to connect WebSocket", e)
+            Log.e(TAG, "Failed to connect Agent Notifications", e)
             updateServiceNotification("Verbindungsfehler", "Versuche erneut...")
+            
+            // FIX: Report connection error
+            errorReporter.reportNetworkError(
+                message = "CallService: Failed to connect Agent Notifications",
+                context = mapOf("error" to (e.message ?: "unknown")),
+                authToken = token
+            )
         }
     }
     
-    private fun disconnectWebSocket() {
-        signalingClient?.disconnect()
-        signalingClient = null
+    private fun disconnectAgentNotifications() {
+        val client = agentNotificationsClient
+        if (client != null) {
+            client.disconnect()
+            agentNotificationsClient = null
+        }
         isConnected = false
         onConnectionStateChanged?.invoke(false)
-        Log.d(TAG, "WebSocket disconnected")
+        Log.d(TAG, "Agent Notifications disconnected")
     }
     
     private fun updateServiceNotification(title: String, text: String) {
@@ -313,58 +349,57 @@ class CallService : Service(), SignalingListener {
         notificationManager.notify(SERVICE_ID, notification)
     }
     
-    // SignalingListener Interface Implementation
-    override fun onWebSocketOpen() {
+    // AgentNotificationListener Interface Implementation
+    override fun onConnected() {
         isConnected = true
         onConnectionStateChanged?.invoke(true)
         updateServiceNotification(
             "2bro4Call Verbunden ✅",
             "Bereit für eingehende Anrufe"
         )
-        Log.d(TAG, "WebSocket connected")
+        Log.d(TAG, "Agent Notifications connected")
     }
     
-    override fun onNewSignalReceived(message: JSONObject) {
-        val type = message.optString("type", "")
-        Log.d(TAG, "Signal received: $type")
+    override fun onNewCall(roomId: String, domainId: String, domainName: String, timestamp: Long) {
+        Log.d(TAG, "New call in queue: $roomId on $domainName (SILENT - no ringtone)")
+        // SILENT - nur Queue-Liste updaten, KEIN Ringtone!
+        // Activity kann RecyclerView updaten via callback
+        // onCallReceived wird NICHT gecallt hier (nur bei call_ringing)
+    }
+    
+    override fun onCallRinging(roomId: String, initiator: String, timestamp: Long) {
+        Log.d(TAG, "🔔 Call ringing: $roomId (initiator: $initiator)")
         
-        when (type) {
-            "offer" -> {
-                // Eingehender Anruf!
-                val sessionId = message.optString("sessionId", "unknown")
-                val domain = currentRoomId?.split("__")?.firstOrNull() ?: "unbekannt"
-                
-                showIncomingCallNotification(sessionId, domain)
-                
-                // Callback an Activity (falls gebunden)
-                onCallReceived?.invoke(sessionId, domain)
-                
-                Log.d(TAG, "Incoming call from session: $sessionId")
-            }
-            "system" -> {
-                val subtype = message.optString("subtype", "")
-                if (subtype == "visitor_joined") {
-                    val visitorData = message.optJSONObject("visitor")
-                    val sessionId = visitorData?.optString("sessionId", "") ?: ""
-                    val domain = visitorData?.optString("domain", "") ?: ""
-                    
-                    if (sessionId.isNotEmpty()) {
-                        showIncomingCallNotification(sessionId, domain)
-                        onCallReceived?.invoke(sessionId, domain)
-                    }
-                }
-            }
-        }
+        // Extract domain from roomId (format: domain__uuid)
+        val domain = roomId.split("__").firstOrNull() ?: "unbekannt"
+        
+        // Show incoming call notification with ringtone
+        showIncomingCallNotification(roomId, domain)
+        
+        // Callback to Activity (falls gebunden)
+        onCallReceived?.invoke(roomId, domain)
+        
+        Log.d(TAG, "Incoming call notification shown for room: $roomId")
     }
     
-    override fun onWebSocketClosed() {
+    override fun onCallActive(roomId: String, domainId: String, agentId: String?, timestamp: Long) {
+        Log.d(TAG, "Call active: $roomId (agent: ${agentId ?: "none"})")
+        // Optional: Update notification, remove from queue list
+    }
+    
+    override fun onCallEnded(roomId: String, domainId: String, reason: String) {
+        Log.d(TAG, "Call ended: $roomId (reason: $reason)")
+        // Optional: Remove notification, update queue list
+    }
+    
+    override fun onDisconnected() {
         isConnected = false
         onConnectionStateChanged?.invoke(false)
         updateServiceNotification(
             "2bro4Call Getrennt ⚠️",
             "Versuche Wiederverbindung..."
         )
-        Log.d(TAG, "WebSocket closed")
+        Log.d(TAG, "Agent Notifications disconnected")
     }
     
     override fun onError(message: String) {
@@ -372,34 +407,38 @@ class CallService : Service(), SignalingListener {
             "Fehler",
             message
         )
-        Log.e(TAG, "WebSocket error: $message")
+        Log.e(TAG, "Agent Notifications error: $message")
     }
     
-    override fun onReconnecting(attempt: Int, delayMs: Int) {
-        updateServiceNotification(
-            "Wiederverbindung... ($attempt/8)",
-            "Nächster Versuch in ${delayMs / 1000}s"
-        )
-        Log.d(TAG, "Reconnecting attempt $attempt, delay ${delayMs}ms")
-    }
-    
+    // FIX: Implement onReconnectFailed
     override fun onReconnectFailed() {
+        Log.e(TAG, "Agent Notifications: Max reconnect attempts reached")
+        
         updateServiceNotification(
             "Verbindung fehlgeschlagen ❌",
-            "Maximale Versuche erreicht"
+            "Bitte manuell neu verbinden"
         )
-        Log.e(TAG, "Reconnect failed after max attempts")
+        
+        // Report critical failure
+        currentToken?.let { token ->
+            errorReporter.reportNetworkError(
+                message = "CallService: Agent Notifications reconnect failed after max attempts",
+                context = mapOf("service" to "CallService"),
+                authToken = token
+            )
+        }
+        
+        // Notify Activity
+        onConnectionStateChanged?.invoke(false)
     }
     
     // Public methods für Activity-Kommunikation
     fun isServiceConnected(): Boolean = isConnected
     
     fun reconnect() {
-        currentRoomId?.let { roomId ->
-            currentToken?.let { token ->
-                disconnectWebSocket()
-                connectWebSocket(roomId, token)
-            }
+        currentToken?.let { token ->
+            disconnectAgentNotifications()
+            connectAgentNotifications(token)
         }
     }
 }

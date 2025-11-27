@@ -32,18 +32,22 @@ class SignalingClient(
         }
     }
     
+    private val handlerThread = android.os.HandlerThread("SignalingClient-HandlerThread").apply { start() }
+    private val backgroundHandler = android.os.Handler(handlerThread.looper)
+    
     private var webSocket: WebSocket? = null
+    @Volatile
     private var reconnectAttempts = 0
     @Volatile
     private var reconnecting = false
     private val MAX_RECONNECT_ATTEMPTS = 8
     private val JITTER_PERCENT = 0.2 // +/- 20%
     private val PING_INTERVAL_MS = 30000L // 30 seconds
-    private val pingHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val pingRunnable = object : Runnable {
         override fun run() {
             try {
-                webSocket?.let { ws ->
+                webSocket?.let { _ ->
+                    // Note: Using member function send() which internally uses webSocket
                     val ping = JSONObject().apply {
                         put("type", "ping")
                         put("timestamp", System.currentTimeMillis())
@@ -54,7 +58,7 @@ class SignalingClient(
             } catch (e: Exception) {
                 Log.e("SignalingClient", "Heartbeat error: ${e.message}")
             }
-            pingHandler.postDelayed(this, PING_INTERVAL_MS)
+            backgroundHandler.postDelayed(this, PING_INTERVAL_MS)
         }
     }
 
@@ -63,6 +67,8 @@ class SignalingClient(
     private var lastRoomId: String? = null
     @Volatile
     private var lastToken: String? = null
+    @Volatile
+    private var lastMode: String = "talk"  // FIX: Store last mode for reconnect
     @Volatile
     private var userInitiatedDisconnect = false
 
@@ -77,6 +83,7 @@ class SignalingClient(
         // store requested connection for automatic reconnects
         lastRoomId = roomId
         lastToken = token
+        lastMode = mode  // FIX: Store mode for reconnect
         userInitiatedDisconnect = false
         reconnectAttempts = 0  // Reset bei jedem neuen connect()
         reconnecting = false
@@ -88,7 +95,8 @@ class SignalingClient(
             backendHost.replaceFirst(Regex("^https?://"), "")
         } else backendHost
         val fullUrl = "wss://$scheme/call/$roomId?token=${token.take(20)}...&mode=$mode"
-        Log.d("SignalingClient", "🔍 [DEBUG] Connecting to: wss://$scheme/call/$roomId")
+        Log.d("SignalingClient", "🔍 [DEBUG] Connecting to: $fullUrl")
+        Log.d("SignalingClient", "🔍 [DEBUG] Full path: wss://$scheme/call/$roomId")
         
         val request = Request.Builder().url("wss://$scheme/call/$roomId?token=$token&mode=$mode").build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
@@ -166,11 +174,13 @@ class SignalingClient(
         })
     }
     
-    fun send(message: JSONObject) {
-        if (webSocket?.send(message.toString()) == true) {
+    fun send(message: JSONObject): Boolean {
+        return if (webSocket?.send(message.toString()) == true) {
             Log.d("SignalingClient", "Sent: ${message.getString("type")}")
+            true
         } else {
             Log.w("SignalingClient", "Failed to send message: WebSocket not open.")
+            false
         }
     }
     
@@ -180,8 +190,7 @@ class SignalingClient(
         stopHeartbeat()
         
         // Cleanup all Handler callbacks to prevent memory leaks
-        pingHandler.removeCallbacksAndMessages(null)
-        reconnectHandler.removeCallbacksAndMessages(null)
+        backgroundHandler.removeCallbacksAndMessages(null)
         
         try {
             webSocket?.close(1000, "App disconnected")
@@ -191,15 +200,24 @@ class SignalingClient(
             lastRoomId = null
             lastToken = null
         }
+        
+        // Quit HandlerThread if no longer needed
+        try {
+            handlerThread.quitSafely()
+        } catch (e: Exception) {
+            Log.e("SignalingClient", "Failed to quit HandlerThread: ${e.message}")
+        }
     }
     
+    @Synchronized
     private fun startHeartbeat() {
         stopHeartbeat()
-        pingHandler.postDelayed(pingRunnable, PING_INTERVAL_MS)
+        backgroundHandler.postDelayed(pingRunnable, PING_INTERVAL_MS)
     }
     
+    @Synchronized
     private fun stopHeartbeat() {
-        pingHandler.removeCallbacks(pingRunnable)
+        backgroundHandler.removeCallbacks(pingRunnable)
     }
 
     private fun sendIdentifyPacket() {
@@ -220,8 +238,6 @@ class SignalingClient(
         send(identify)
     }
 
-    private val reconnectHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    
     private fun scheduleReconnectIfNeeded() {
         Log.d("SignalingClient", "🔍 [DEBUG] scheduleReconnectIfNeeded: reconnecting=$reconnecting, userInitiated=$userInitiatedDisconnect")
         
@@ -251,13 +267,14 @@ class SignalingClient(
             reconnectAttempts = MAX_RECONNECT_ATTEMPTS - 2 // Reset zu mittlerem Backoff
             listener.onReconnecting(reconnectAttempts, 120000) // 2 Minuten
             
-            reconnectHandler.postDelayed({
+            backgroundHandler.postDelayed({
                 val room = lastRoomId
                 val token = lastToken
+                val mode = lastMode  // FIX: Retrieve stored mode
                 if (!userInitiatedDisconnect && room != null && token != null) {
                     try {
-                        Log.d("SignalingClient", "Attempting long-delay reconnect to $room")
-                        connect(room, token)
+                        Log.d("SignalingClient", "Attempting long-delay reconnect to $room (mode=$mode)")
+                        connectWithMode(room, token, mode)  // FIX: Use connectWithMode to preserve mode
                     } catch (e: Exception) {
                         Log.e("SignalingClient", "Long-delay reconnect failed: ${e.message}")
                     }
@@ -277,14 +294,15 @@ class SignalingClient(
         // notify listener about reconnect schedule
         listener.onReconnecting(reconnectAttempts, delayMs)
 
-        reconnectHandler.postDelayed({
+        backgroundHandler.postDelayed({
             // only reconnect if we have stored params and the user didn't explicitly disconnect
             val room = lastRoomId
             val token = lastToken
+            val mode = lastMode  // FIX: Retrieve stored mode
             if (!userInitiatedDisconnect && room != null && token != null) {
                 try {
-                    Log.d("SignalingClient", "Attempting automatic reconnect to $room")
-                    connect(room, token)
+                    Log.d("SignalingClient", "Attempting automatic reconnect to $room (mode=$mode)")
+                    connectWithMode(room, token, mode)  // FIX: Use connectWithMode to preserve mode
                 } catch (e: Exception) {
                     Log.e("SignalingClient", "Reconnect attempt failed: ${e.message}")
                 }

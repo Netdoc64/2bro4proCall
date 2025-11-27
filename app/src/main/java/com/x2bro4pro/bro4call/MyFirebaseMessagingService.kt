@@ -35,7 +35,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         
         Log.d(TAG, "Message received from: ${message.from}")
         
-        // Check if message contains data payload
+        // FIX: Process ONLY data payload to prevent duplicate notifications
         if (message.data.isNotEmpty()) {
             Log.d(TAG, "Message data: ${message.data}")
             
@@ -53,24 +53,23 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     Log.d(TAG, "Call ended notification received")
                 }
                 else -> {
-                    // Generic notification
-                    message.notification?.let { notification ->
-                        showNotification(
-                            notification.title ?: "2bro4Call",
-                            notification.body ?: ""
-                        )
+                    // Generic notification - only show if no notification payload exists
+                    if (message.notification == null) {
+                        showNotification("2bro4Call", "Neue Benachrichtigung")
                     }
                 }
             }
         }
         
-        // Check if message contains notification payload
-        message.notification?.let { notification ->
-            Log.d(TAG, "Message notification: ${notification.title} - ${notification.body}")
-            showNotification(
-                notification.title ?: "2bro4Call",
-                notification.body ?: ""
-            )
+        // FIX: Only process notification payload if data payload was empty
+        if (message.data.isEmpty()) {
+            message.notification?.let { notification ->
+                Log.d(TAG, "Message notification: ${notification.title} - ${notification.body}")
+                showNotification(
+                    notification.title ?: "2bro4Call",
+                    notification.body ?: ""
+                )
+            }
         }
     }
     
@@ -90,14 +89,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val savedToken = authClient.getToken()
             
             if (savedToken != null) {
-                val domains = authClient.getDomains()
-                val domain = domains.firstOrNull() ?: "tarba_schlusseldienst"
-                val sessionId = java.util.UUID.randomUUID().toString()
-                val roomId = "${domain}__${sessionId}"
-                
+                // Start CallService in FCM-only mode (no WebSocket room)
                 val serviceIntent = Intent(this, CallService::class.java).apply {
                     action = CallService.ACTION_START_SERVICE
-                    putExtra(CallService.EXTRA_ROOM_ID, roomId)
+                    // KEIN EXTRA_ROOM_ID - Agent hat keinen festen Room!
                     putExtra(CallService.EXTRA_TOKEN, savedToken)
                 }
                 
@@ -107,7 +102,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     startService(serviceIntent)
                 }
                 
-                Log.d(TAG, "CallService started via FCM")
+                Log.d(TAG, "CallService started via FCM (no fixed room)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start CallService", e)
@@ -115,7 +110,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
     
     private fun showIncomingCallNotification(sessionId: String, domain: String, callerName: String) {
-        createNotificationChannel()
+        // Ensure HIGH priority channel exists (CallService might not be running)
+        ensureIncomingCallChannel()
         
         val intent = Intent(this, AppActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -131,19 +127,23 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, CallService.INCOMING_CALL_CHANNEL_ID)
             .setSmallIcon(R.drawable.app_logo)
             .setContentTitle("📞 Eingehender Anruf")
             .setContentText("$callerName von $domain")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX) // MAX instead of HIGH
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_LIGHTS)
+            .setFullScreenIntent(pendingIntent, true) // Critical: Full screen for locked devices
             .build()
         
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(sessionId.hashCode(), notification)
+        
+        Log.d(TAG, "FCM Incoming call notification shown (HIGH priority): $sessionId")
     }
     
     private fun showNotification(title: String, body: String) {
@@ -178,15 +178,38 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Push-Benachrichtigungen",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Benachrichtigungen für eingehende Anrufe"
-                enableVibration(true)
-                enableLights(true)
+                description = "Allgemeine Benachrichtigungen"
             }
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+        }
+    }
+    
+    /**
+     * Ensures HIGH priority channel for incoming calls exists
+     * Critical: Must be called BEFORE showing call notification
+     */
+    private fun ensureIncomingCallChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val callChannel = NotificationChannel(
+                CallService.INCOMING_CALL_CHANNEL_ID,
+                "Eingehende Anrufe",
+                NotificationManager.IMPORTANCE_HIGH // HIGH = with sound
+            ).apply {
+                description = "Benachrichtigungen für eingehende Anrufe mit Klingelton"
+                enableVibration(true)
+                enableLights(true)
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(callChannel)
+            
+            Log.d(TAG, "HIGH priority INCOMING_CALL_CHANNEL created/ensured")
         }
     }
     
@@ -195,8 +218,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val prefs = getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE)
         prefs.edit().putString("fcm_token", token).apply()
         
-        // TODO: Send to backend via AuthClient or API call
-        // This should be done after user login
+        // Note: Token is sent to backend when user logs in (via AppActivity.sendFcmTokenToBackend())
         Log.d(TAG, "FCM Token stored locally: $token")
     }
 }
