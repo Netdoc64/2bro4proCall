@@ -443,9 +443,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             val displayName = authClient.getDisplayName()
             currentToken = savedToken
             // Safer role extraction with fallback
-           currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
-    (roleMap["name"] as? String) ?: "Unknown"  // ✅ Safe cast with fallback
-}
+            currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
+                (roleMap["name"] as? String) ?: "Unknown"
+            }
             
             Log.d("AppActivity", "🔍 [DEBUG] Auto-Login: displayName=$displayName, role=$currentRole")
             
@@ -532,8 +532,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         val domains = authClient.getDomains()
         // Safer role extraction with fallback
         currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
-    (roleMap["name"] as? String) ?: "Unknown"  // ✅ Safe cast with fallback
-}
+            (roleMap["name"] as? String) ?: "Unknown"
+        }
         
         // Log successful auto-connect for analytics
         if (userId != null) {
@@ -641,8 +641,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                             currentUserId = userId
                             // Safer role extraction with fallback
                             currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
-    (roleMap["name"] as? String) ?: "Unknown"  // ✅ Safe cast with fallback
-}
+                                (roleMap["name"] as? String) ?: "Unknown"
+                            }
                             
                             Toast.makeText(this@AppActivity, "✅ Angemeldet${if (rememberCheckbox.isChecked) " - gespeichert" else ""}", Toast.LENGTH_SHORT).show()
                             
@@ -767,8 +767,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                                 currentToken = token
                                 // Safer role extraction with fallback
                                 currentRole = authClient.getRoles().firstOrNull()?.let { roleMap ->
-    (roleMap["name"] as? String) ?: "Unknown"  // ✅ Safe cast with fallback
-}
+                                    (roleMap["name"] as? String) ?: "Unknown"
+                                }
                                 updateRoleBasedUI(currentRole)
                                 
                                 Toast.makeText(this@AppActivity, "✅ Account erstellt und angemeldet", Toast.LENGTH_SHORT).show()
@@ -2119,6 +2119,18 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 override fun onError(message: String) {
                     Log.e("AppActivity", "❌ Agent Notifications error: $message")
                 }
+                
+                override fun onReconnectFailed() {
+                    safeRunOnUiThread {
+                        statusTextView.text = "Status: ❌ Verbindung fehlgeschlagen"
+                        Toast.makeText(
+                            this@AppActivity,
+                            "Agent Notifications: Maximale Reconnect-Versuche erreicht",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        Log.e("AppActivity", "❌ Agent Notifications reconnect failed after max attempts")
+                    }
+                }
             },
             backendHost = BACKEND_HOST,
             token = token
@@ -2838,7 +2850,11 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             .setTitle("User: $email")
             .setMessage(message)
         
-        
+        if (!approved) {
+            builder.setPositiveButton("✅ Freischalten") { _, _ ->
+                approveUser(userId, email)
+            }
+        }
         
         builder.setNeutralButton("🏢 Domains zuweisen") { _, _ ->
             assignDomains(userId, email, domainsList, domainsArray)

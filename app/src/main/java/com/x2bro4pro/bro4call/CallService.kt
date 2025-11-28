@@ -50,10 +50,11 @@ class CallService : Service(), AgentNotificationListener {
         super.onCreate()
         Log.d(TAG, "Service created")
         
-        // FIX: Initialize ErrorReporter
+        // FIX: Initialize ErrorReporter with correct parameters
         errorReporter = ErrorReporter(
             context = applicationContext,
-            backendHost = "call-server.netdoc64.workers.dev"
+            backendBaseUrl = "https://call-server.netdoc64.workers.dev",
+            appVersion = "1.1.0-bugfix"
         )
         
         createNotificationChannels()
