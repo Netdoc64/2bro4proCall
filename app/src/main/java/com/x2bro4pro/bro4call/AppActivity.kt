@@ -923,8 +923,23 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                 }
                 "chat" -> handleChatMessage(message)
                 "call_ringing" -> handleCallRinging(message)
+                "call_accepted" -> {
+                    Log.d("AppActivity", "✅ Call accepted by: ${message.optString("by_role")}")
+                    val byRole = message.optString("by_role", "")
+                    val byId = message.optString("by", "")
+                    
+                    safeRunOnUiThread {
+                        if (byRole == "visitor") {
+                            // Visitor accepted our call
+                            Toast.makeText(this, "Visitor antwortet...", Toast.LENGTH_SHORT).show()
+                            updateCallStatus("Verbinde mit Visitor...")
+                        }
+                        // Now we wait for the answer SDP
+                    }
+                }
                 else -> Log.w("AppActivity", "Unknown message type: $type")
             }
+
         }
     }
     

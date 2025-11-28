@@ -124,7 +124,7 @@ class SignalingClient(
                     // Dispatch known message types
                     val type = json.optString("type", "")
                     when (type) {
-                        "offer", "answer", "candidate", "system" -> listener.onNewSignalReceived(json)
+                        "offer", "answer", "candidate", "ice", "system", "call_accepted" -> listener.onNewSignalReceived(json)
                         else -> listener.onNewSignalReceived(json)
                     }
                 } catch (e: Exception) {
