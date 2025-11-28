@@ -1,9 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/glass_surface" />
-    <corners android:radius="20dp" />
-    <stroke
-        android:width="1.5dp"
-        android:color="@color/glass_border" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 3D Shadow Layer (bottom-right for depth) -->
+    <item
+        android:left="4dp"
+        android:top="4dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#18000000" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+    <!-- Main glass card with white pearl gradient -->
+    <item
+        android:right="4dp"
+        android:bottom="4dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="@color/glass_surface"
+                android:endColor="@color/glass_highlight" />
+            <corners android:radius="24dp" />
+            <stroke
+                android:width="1dp"
+                android:color="@color/glass_border" />
+        </shape>
+    </item>
+    
+    <!-- Inner glow/highlight for 3D lift effect -->
+    <item
+        android:right="4dp"
+        android:bottom="4dp"
+        android:left="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="0.5dp"
+                android:color="#60FFFFFF" />
+            <corners android:radius="23dp" />
+        </shape>
+    </item>
+</layer-list>
