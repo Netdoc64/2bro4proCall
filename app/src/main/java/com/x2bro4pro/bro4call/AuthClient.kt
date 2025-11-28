@@ -336,51 +336,79 @@ class AuthClient(
         fun onFailure(message: String)
     }
     
-    fun sendFcmToken(fcmToken: String, cb: FcmTokenCallback) {
-        val token = getToken()
-        if (token.isNullOrBlank()) {
-            cb.onFailure("Not logged in")
-            return
+   // AuthClient.kt
+
+fun sendFcmToken(fcmToken: String, cb: FcmTokenCallback) {
+    // 1. Initialer Check
+    val token = getToken()
+    if (token.isNullOrBlank()) {
+        cb.onFailure("Not logged in")
+        return
+    }
+
+    // --- KORREKTUREN STARTEN HIER ---
+    
+    // KORREKTUR 1: URL an den korrekten Backend-Endpunkt anpassen.
+    // Alter URL: val url = "$baseUrl/api/fcm-token"
+    val url = "$baseUrl/api/register_device" 
+    
+    // KORREKTUR 2: JSON Payload an die Backend-Erwartungen anpassen (Snake Case und zusätzliche Felder).
+    // Informationen von Android Build verwenden.
+    val json = JSONObject().apply {
+        // Backend erwartet fcm_token (snake_case)
+        put("fcm_token", fcmToken) 
+        // Füge erforderliche Geräteinformationen hinzu, um den DB-Eintrag zu vervollständigen
+        put("device_type", "android")
+        put("device_name", android.os.Build.MODEL)
+        
+        val appVersion = try {
+            // HOLT die tatsächliche App-Version von Android (Zugriff auf Context erforderlich)
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        } catch (e: Exception) {
+            "unknown"
+        }
+        put("app_version", appVersion)
+    }
+
+    // --- KORREKTUREN ENDEN HIER ---
+
+    val mediaType = "application/json; charset=utf-8".toMediaType()
+    val body = json.toString().toRequestBody(mediaType)
+    
+    val req = Request.Builder()
+        .url(url)
+        .post(body)
+        .header("Authorization", "Bearer $token")
+        .build()
+        
+    client.newCall(req).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            Log.e("AuthClient", "FCM token send failed: ${e.message}")
+            cb.onFailure("Network error: ${e.message}")
         }
         
-        val url = "$baseUrl/api/fcm-token"
-        val json = JSONObject().apply {
-            put("fcmToken", fcmToken)
-        }
-        val mediaType = "application/json; charset=utf-8".toMediaType()
-        val body = json.toString().toRequestBody(mediaType)
-        val req = Request.Builder()
-            .url(url)
-            .post(body)
-            .header("Authorization", "Bearer $token")
-            .build()
-            
-        client.newCall(req).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e("AuthClient", "FCM token send failed: ${e.message}")
-                cb.onFailure("Network error: ${e.message}")
-            }
-            
-            override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    if (!it.isSuccessful) {
-                        val errorMsg = try {
-                            val errorBody = it.body?.string() ?: ""
-                            val errorJson = JSONObject(errorBody)
-                            errorJson.optString("error", "Unknown error")
-                        } catch (e: Exception) {
-                            "HTTP ${it.code}"
-                        }
-                        Log.e("AuthClient", "FCM token send failed: $errorMsg")
-                        cb.onFailure(errorMsg)
-                        return
+        override fun onResponse(call: Call, response: Response) {
+            response.use {
+                if (!it.isSuccessful) {
+                    val errorMsg = try {
+                        val errorBody = it.body?.string() ?: ""
+                        val errorJson = JSONObject(errorBody)
+                        
+                        // KORREKTUR 3: Reportet den spezifischen Device-Fehler des Backends (z.B. 400 Bad Request)
+                        errorJson.optString("error", "Unknown error")
+                    } catch (e: Exception) {
+                        "HTTP ${it.code}"
                     }
-                    Log.d("AuthClient", "FCM token sent successfully")
-                    cb.onSuccess()
+                    Log.e("AuthClient", "FCM token send failed: $errorMsg")
+                    cb.onFailure(errorMsg)
+                    return
                 }
+                Log.d("AuthClient", "FCM token sent successfully")
+                cb.onSuccess()
             }
-        })
-    }
+        }
+    })
+}
     
     fun saveRoomId(roomId: String) {
         prefs.edit().putString(KEY_ROOM_ID, roomId).apply()
