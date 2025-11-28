@@ -752,7 +752,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                         Toast.makeText(this, "❌ Passwort muss mindestens 6 Zeichen haben", Toast.LENGTH_SHORT).show()
                         return@setOnClickListener
                     }
-                    
+                     
                     // Disable button and show loading
                     registerBtn.isEnabled = false
                     registerBtn.text = "⏳ Registriere..."
@@ -932,7 +932,7 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                         if (byRole == "visitor") {
                             // Visitor accepted our call
                             Toast.makeText(this, "Visitor antwortet...", Toast.LENGTH_SHORT).show()
-                            updateCallStatus("Verbinde mit Visitor...")
+
                         }
                         // Now we wait for the answer SDP
                     }
