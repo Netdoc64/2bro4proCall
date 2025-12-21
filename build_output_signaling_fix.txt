@@ -1,0 +1,91 @@
+Starting a Gradle Daemon, 1 incompatible and 1 stopped Daemons could not be reused, use --status for details
+> Task :clean UP-TO-DATE
+> Task :app:clean
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateDebugResValues
+> Task :app:generateDebugResources
+> Task :app:dataBindingMergeDependencyArtifactsDebug
+> Task :app:processDebugGoogleServices
+> Task :app:packageDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+> Task :app:checkDebugAarMetadata
+> Task :app:dataBindingGenBaseClassesDebug
+> Task :app:mapDebugSourceSetPaths
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+
+> Task :app:processDebugMainManifest
+package="com.x2bro4pro.bro4call" found in source AndroidManifest.xml: /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.x2bro4pro.bro4call" from the source AndroidManifest.xml: /workspaces/2bro4proCall/app/src/main/AndroidManifest.xml.
+
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:checkDebugDuplicateClasses
+> Task :app:desugarDebugFileDependencies
+> Task :app:processDebugResources
+> Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeDebugNativeLibs
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libjingle_peerconnection_so.so.
+
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:compileDebugKotlin
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:213:53 Parameter 'domainId' is never used, could be renamed to _
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:779:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1123:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1164:36 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1168:36 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1937:21 Name shadowed: pc
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:2034:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:2089:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:3792:13 Variable 'dialogView' is never used
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:3936:13 Variable 'dialogView' is never used
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:6:33 'EncryptedSharedPreferences' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:7:33 'MasterKeys' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:42:30 'MasterKeys' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:42:53 'MasterKeys' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:42:64 'AES256_GCM_SPEC: KeyGenParameterSpec!' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:43:16 'EncryptedSharedPreferences' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:43:43 'create(String!, String!, Context!, EncryptedSharedPreferences.PrefKeyEncryptionScheme!, EncryptedSharedPreferences.PrefValueEncryptionScheme!): SharedPreferences!' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:47:13 'EncryptedSharedPreferences' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:47:40 'PrefKeyEncryptionScheme' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:48:13 'EncryptedSharedPreferences' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AuthClient.kt:48:40 'PrefValueEncryptionScheme' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/CallService.kt:294:13 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/CallService.kt:294:38 'PRIORITY_HIGH: Int' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/ErrorReporter.kt:267:27 'getter for defaultDisplay: Display!' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/ErrorReporter.kt:267:42 'getMetrics(DisplayMetrics!): Unit' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/NetworkChangeReceiver.kt:28:50 'CONNECTIVITY_ACTION: String' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/NetworkChangeReceiver.kt:140:26 'getter for isConnected: Boolean' is deprecated. Deprecated in Java
+
+> Task :app:compileDebugJavaWithJavac
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+
+> Task :app:processDebugJavaRes
+> Task :app:mergeDebugJavaResource
+> Task :app:dexBuilderDebug
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 2m 30s
+39 actionable tasks: 38 executed, 1 up-to-date

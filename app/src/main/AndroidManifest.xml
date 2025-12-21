@@ -7,9 +7,14 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
+    <!-- Bluetooth für Headsets (Android 12+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    
     <!-- Foreground Service und Benachrichtigungen -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
     <!-- Auto-Start nach Reboot -->
@@ -32,11 +37,12 @@
         </activity>
         
         <!-- Foreground Service für eingehende Anrufe -->
+        <!-- ANDROID 14 FIX: Use dataSync for FCM/WebSocket listening, microphone only during active calls -->
         <service
             android:name=".CallService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="microphone"/>
+            android:foregroundServiceType="dataSync|microphone"/>
         
         <!-- Boot Receiver für Auto-Start nach Neustart -->
         <receiver

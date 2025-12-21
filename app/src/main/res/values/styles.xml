@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SciFi" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/glass_accent_1</item>
+    <!-- Light Glassmorphism Theme -->
+    <style name="Theme.SciFi" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/soft_purple</item>
         <item name="colorOnPrimary">@color/text_primary</item>
-        <item name="colorSecondary">@color/glass_accent_2</item>
+        <item name="colorSecondary">@color/soft_cyan</item>
         <item name="android:statusBarColor">@color/glass_background_start</item>
         <item name="android:navigationBarColor">@color/glass_background_start</item>
         <item name="android:windowBackground">@drawable/bg_glassmorphism</item>
         <item name="android:textColor">@color/text_primary</item>
         <item name="materialButtonStyle">@style/Widget.Glass.Button</item>
         <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="Widget.Glass.Button" parent="Widget.MaterialComponents.Button">
-        <item name="cornerRadius">16dp</item>
+        <item name="cornerRadius">18dp</item>
         <item name="android:insetLeft">0dp</item>
         <item name="android:insetRight">0dp</item>
         <item name="android:insetTop">0dp</item>
@@ -27,22 +30,25 @@
         <item name="android:textSize">15sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:letterSpacing">0.02</item>
-        <item name="elevation">0dp</item>
+        <item name="elevation">8dp</item> <!-- Höher für Sichtbarkeit -->
         <item name="android:stateListAnimator">@null</item>
     </style>
     
     <style name="Widget.Glass.Button.Primary">
         <item name="backgroundTint">@null</item>
         <item name="android:background">@drawable/glass_button_primary</item>
+        <item name="android:textColor">@color/text_primary</item>
     </style>
     
     <style name="Widget.Glass.Button.Secondary">
         <item name="backgroundTint">@null</item>
         <item name="android:background">@drawable/glass_button_secondary</item>
+        <item name="android:textColor">@color/text_secondary</item>
     </style>
     
     <style name="Widget.Glass.Button.Success">
         <item name="backgroundTint">@null</item>
         <item name="android:background">@drawable/glass_button_success</item>
+        <item name="android:textColor">#FFFFFF</item>
     </style>
 </resources>

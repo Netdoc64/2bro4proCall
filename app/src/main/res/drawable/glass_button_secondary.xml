@@ -1,13 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="@color/glass_highlight">
+    android:color="#20A5B4FC">
     <item android:id="@android:id/background">
-        <shape android:shape="rectangle">
-            <solid android:color="@color/glass_surface" />
-            <corners android:radius="16dp" />
-            <stroke
-                android:width="1.5dp"
-                android:color="@color/glass_border" />
-        </shape>
+        <layer-list>
+            <!-- 3D shadow -->
+            <item
+                android:left="2dp"
+                android:top="2dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#15000000" />
+                    <corners android:radius="18dp" />
+                </shape>
+            </item>
+            
+            <!-- White glass surface -->
+            <item
+                android:right="2dp"
+                android:bottom="2dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:type="linear"
+                        android:angle="135"
+                        android:startColor="@color/glass_surface"
+                        android:endColor="#F5F7FA" />
+                    <corners android:radius="18dp" />
+                    <stroke
+                        android:width="1.5dp"
+                        android:color="@color/glass_border" />
+                </shape>
+            </item>
+            
+            <!-- Inner highlight -->
+            <item
+                android:right="3dp"
+                android:bottom="3dp"
+                android:left="1dp"
+                android:top="1dp">
+                <shape android:shape="rectangle">
+                    <stroke
+                        android:width="0.5dp"
+                        android:color="#70FFFFFF" />
+                    <corners android:radius="17dp" />
+                </shape>
+            </item>
+        </layer-list>
     </item>
 </ripple>

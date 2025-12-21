@@ -750,6 +750,8 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         // Fix #2: Add lateinit initialization checks
         if (::signalingClient.isInitialized) {
             signalingClient.disconnect()
+            // ZOMBIE-WEBSOCKET FIX: Release HandlerThread to prevent thread leaks on rotation
+            signalingClient.release()
         }
         // FIXED: webRtcClient ist jetzt nullable
         webRtcClient?.close()
@@ -1328,7 +1330,12 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     private fun handleSystemMessage(message: JSONObject) {
         if (message.optString("action") == "peer_left" && message.optString("role") == "visitor") {
-            val sessionId = message.optString("sessionId") 
+            val sessionId = message.optString("sessionId")
+            // SDP MISMATCH FIX: Validate sessionId is not empty
+            if (sessionId.isBlank()) {
+                Log.e("AppActivity", "Invalid peer_left message: sessionId is blank")
+                return
+            }
             handleVisitorLeft(message)
             if (activeCallSessionId == sessionId) endCall() 
         }
@@ -1427,6 +1434,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         Log.d("AppActivity", "Call ringing: room=$roomId, initiator=$initiator")
         
         safeRunOnUiThread {
+            // CRITICAL FIX: If THIS agent initiated the call (outgoing), 
+            // this is just confirmation that visitor's phone is ringing - NOT an incoming call
+            if (isOutgoingCall) {
+                Log.d("AppActivity", "Outgoing call confirmed - visitor's phone is ringing")
+                activeCallInfo.text = "📞 Es klingelt beim Besucher..."
+                statusTextView.text = "Status: Warten auf Antwort..."
+                return@safeRunOnUiThread
+            }
+            
             // Play ringtone
             playRingtone()
             
@@ -1655,13 +1671,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     private fun startWebRtcNegotiation() {
         Log.d("AppActivity", "🎙️ Starting WebRTC negotiation (creating Offer)...")
         
+        // ANDROID 14 FIX: Request microphone access BEFORE WebRTC starts
+        callService?.requestMicrophoneAccess()
+        
         webRtcClient?.createOffer(object : SdpObserver {
-            override fun onCreateSuccess(sdp: SessionDescription) {
+            override fun onCreateSuccess(offerSdp: SessionDescription) {
                 // Fix #4: Thread-safe access to peerConnection
                 val pc = webRtcClient?.peerConnection
-                if (pc != null) {
-                    pc.setLocalDescription(this, sdp)
-                } else {
+                if (pc == null) {
                     Log.e("AppActivity", "PeerConnection became null during offer creation")
                     safeRunOnUiThread {
                         Toast.makeText(this@AppActivity, "WebRTC Verbindung verloren", Toast.LENGTH_SHORT).show()
@@ -1670,27 +1687,57 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     return
                 }
                 
-                val offer = JSONObject().apply {
-                    put("type", "offer")
-                    put("data", JSONObject().apply {
-                        put("type", sdp.type.canonicalForm())
-                        put("sdp", sdp.description)
-                    })
-                    put("targetSessionId", activeCallSessionId ?: JSONObject.NULL)
-                }
-                if (signalingClient.send(offer)) {
-                    safeRunOnUiThread {
-                        activeCallInfo.text = "🔊 WebRTC Verbindung wird aufgebaut..."
+                // SIGNALING LOOP FIX: Nested observer preserves original SessionDescription in closure
+                pc.setLocalDescription(object : SdpObserver {
+                    override fun onSetSuccess() {
+                        // SIGNALING LOOP FIX: Send offer ONLY after setLocalDescription succeeds
+                        Log.d("WebRTC", "✅ setLocalDescription (offer) successful")
+                        
+                        // SDP MISMATCH FIX: Validate targetSessionId before sending
+                        if (activeCallSessionId.isNullOrBlank()) {
+                            Log.e("WebRTC", "❌ Cannot send offer: activeCallSessionId is null/blank")
+                            safeRunOnUiThread {
+                                Toast.makeText(this@AppActivity, "Fehler: Keine Session-ID", Toast.LENGTH_SHORT).show()
+                                endCall()
+                            }
+                            return
+                        }
+                        
+                        val offer = JSONObject().apply {
+                            put("type", "offer")
+                            put("data", JSONObject().apply {
+                                put("type", offerSdp.type.canonicalForm())
+                                put("sdp", offerSdp.description)
+                            })
+                            put("targetSessionId", activeCallSessionId)
+                        }
+                        if (signalingClient.send(offer)) {
+                            safeRunOnUiThread {
+                                activeCallInfo.text = "🔊 WebRTC Verbindung wird aufgebaut..."
+                            }
+                            Log.d("AppActivity", "✅ WebRTC Offer sent successfully")
+                        } else {
+                            Log.e("AppActivity", "❌ Failed to send offer - WebSocket not connected")
+                            safeRunOnUiThread {
+                                Toast.makeText(this@AppActivity, "Fehler: Nicht verbunden", Toast.LENGTH_SHORT).show()
+                                endCall()
+                            }
+                        }
                     }
-                    Log.d("AppActivity", "✅ WebRTC Offer sent successfully")
-                } else {
-                    Log.e("AppActivity", "❌ Failed to send offer - WebSocket not connected")
-                    safeRunOnUiThread {
-                        Toast.makeText(this@AppActivity, "Fehler: Nicht verbunden", Toast.LENGTH_SHORT).show()
-                        endCall()
+                    
+                    override fun onSetFailure(error: String) {
+                        Log.e("WebRTC", "❌ setLocalDescription (offer) failed: $error")
+                        safeRunOnUiThread {
+                            Toast.makeText(this@AppActivity, "WebRTC Fehler: $error", Toast.LENGTH_LONG).show()
+                            endCall()
+                        }
                     }
-                }
+                    
+                    override fun onCreateSuccess(sdp: SessionDescription) {}
+                    override fun onCreateFailure(error: String) {}
+                }, offerSdp)
             }
+            
             override fun onCreateFailure(s: String) { 
                 Log.e("WebRTC", "❌ Offer creation failed: $s")
                 safeRunOnUiThread {
@@ -1698,12 +1745,9 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     endCall()
                 }
             }
-            override fun onSetFailure(s: String) { 
-                Log.e("WebRTC", "❌ SetLocalDescription failed: $s")
-            }
-            override fun onSetSuccess() {
-                Log.d("WebRTC", "✅ Local description set successfully")
-            }
+            
+            override fun onSetFailure(s: String) {}
+            override fun onSetSuccess() {}
         })
     }
     
@@ -1762,17 +1806,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         // Setup ICE Callback für diesen Anruf
         webRtcClient?.onIceCandidateCallback = { candidate ->
-            val candidateJson = JSONObject().apply {
-                put("type", "ice")
-                put("data", JSONObject().apply {
-                    put("candidate", candidate.sdp)
-                    put("sdpMid", candidate.sdpMid)
-                    put("sdpMLineIndex", candidate.sdpMLineIndex)
-                })
-                put("targetSessionId", activeCallSessionId ?: JSONObject.NULL)
-            }
-            if (!signalingClient.send(candidateJson)) {
-                Log.e("AppActivity", "Failed to send ICE candidate - WebSocket not connected")
+            // SDP MISMATCH FIX: Only send ICE if we have valid targetSessionId
+            if (activeCallSessionId.isNullOrBlank()) {
+                Log.e("AppActivity", "❌ Cannot send ICE candidate: activeCallSessionId is null/blank")
+            } else {
+                val candidateJson = JSONObject().apply {
+                    put("type", "ice")
+                    put("data", JSONObject().apply {
+                        put("candidate", candidate.sdp)
+                        put("sdpMid", candidate.sdpMid)
+                        put("sdpMLineIndex", candidate.sdpMLineIndex)
+                    })
+                    put("targetSessionId", activeCallSessionId)
+                }
+                if (!signalingClient.send(candidateJson)) {
+                    Log.e("AppActivity", "Failed to send ICE candidate - WebSocket not connected")
+                }
             }
         }
         
@@ -1805,6 +1854,15 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         }
         
         val callerSessionId = message.optString("sessionId")
+        
+        // SDP MISMATCH FIX: Validate sessionId is not empty/blank
+        if (callerSessionId.isBlank()) {
+            Log.e("AppActivity", "❌ Invalid offer: sessionId is blank/missing")
+            safeRunOnUiThread {
+                Toast.makeText(this, "Ungültiger Anruf: Fehlende Session-ID", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
         
         // CRITICAL FIX: If THIS agent initiated the call (outgoing), 
         // we sent the offer and should NOT process incoming offers
@@ -1847,17 +1905,22 @@ class AppActivity : AppCompatActivity(), SignalingListener {
         
         // Setup ICE Callback für diesen Anruf
         webRtcClient?.onIceCandidateCallback = { candidate ->
-            val candidateJson = JSONObject().apply {
-                put("type", "ice")
-                put("data", JSONObject().apply {
-                    put("candidate", candidate.sdp)
-                    put("sdpMid", candidate.sdpMid)
-                    put("sdpMLineIndex", candidate.sdpMLineIndex)
-                })
-                put("targetSessionId", activeCallSessionId ?: JSONObject.NULL)
-            }
-            if (!signalingClient.send(candidateJson)) {
-                Log.e("AppActivity", "Failed to send ICE candidate - WebSocket not connected")
+            // SDP MISMATCH FIX: Only send ICE if we have valid targetSessionId
+            if (activeCallSessionId.isNullOrBlank()) {
+                Log.e("AppActivity", "❌ Cannot send ICE candidate: activeCallSessionId is null/blank")
+            } else {
+                val candidateJson = JSONObject().apply {
+                    put("type", "ice")
+                    put("data", JSONObject().apply {
+                        put("candidate", candidate.sdp)
+                        put("sdpMid", candidate.sdpMid)
+                        put("sdpMLineIndex", candidate.sdpMLineIndex)
+                    })
+                    put("targetSessionId", activeCallSessionId)
+                }
+                if (!signalingClient.send(candidateJson)) {
+                    Log.e("AppActivity", "Failed to send ICE candidate - WebSocket not connected")
+                }
             }
         }
         
@@ -1908,13 +1971,14 @@ class AppActivity : AppCompatActivity(), SignalingListener {
             }
         }, offerDesc)
         
+        // ANDROID 14 FIX: Request microphone access BEFORE WebRTC starts
+        callService?.requestMicrophoneAccess()
+        
         webRtcClient?.createAnswer(object : SdpObserver {
             override fun onCreateSuccess(answerSdp: SessionDescription) {
                 // Fix #4: Thread-safe access to peerConnection
                 val pc = webRtcClient?.peerConnection
-                if (pc != null) {
-                    pc.setLocalDescription(this, answerSdp)
-                } else {
+                if (pc == null) {
                     Log.e("AppActivity", "PeerConnection became null during answer creation")
                     safeRunOnUiThread {
                         Toast.makeText(this@AppActivity, "WebRTC Verbindung verloren", Toast.LENGTH_SHORT).show()
@@ -1923,25 +1987,55 @@ class AppActivity : AppCompatActivity(), SignalingListener {
                     return
                 }
                 
-                val answer = JSONObject().apply {
-                    put("type", "answer")
-                    put("data", JSONObject().apply { 
-                        put("type", answerSdp.type.canonicalForm())
-                        put("sdp", answerSdp.description)
-                    })
-                    put("targetSessionId", callerSessionId) 
-                }
-                if (signalingClient.send(answer)) {
-                    activeCallInfo.text = "Verbunden, im Gespräch"
-                } else {
-                    Log.e("AppActivity", "Failed to send answer - WebSocket not connected")
-                    safeRunOnUiThread {
-                        Toast.makeText(this@AppActivity, "Fehler beim Verbinden", Toast.LENGTH_SHORT).show()
-                        endCall()
+                // SIGNALING LOOP FIX: Nested observer preserves original SessionDescription in closure
+                pc.setLocalDescription(object : SdpObserver {
+                    override fun onSetSuccess() {
+                        // Send answer ONLY after setLocalDescription succeeds
+                        Log.d("WebRTC", "✅ setLocalDescription (answer) successful")
+                        
+                        val answer = JSONObject().apply {
+                            put("type", "answer")
+                            put("data", JSONObject().apply { 
+                                put("type", answerSdp.type.canonicalForm())
+                                put("sdp", answerSdp.description)
+                            })
+                            put("targetSessionId", callerSessionId) 
+                        }
+                        if (signalingClient.send(answer)) {
+                            safeRunOnUiThread {
+                                activeCallInfo.text = "Verbunden, im Gespräch"
+                            }
+                            Log.d("WebRTC", "✅ Answer sent to caller")
+                        } else {
+                            Log.e("AppActivity", "Failed to send answer - WebSocket not connected")
+                            safeRunOnUiThread {
+                                Toast.makeText(this@AppActivity, "Fehler beim Verbinden", Toast.LENGTH_SHORT).show()
+                                endCall()
+                            }
+                        }
                     }
+                    
+                    override fun onSetFailure(error: String) {
+                        Log.e("WebRTC", "❌ setLocalDescription (answer) failed: $error")
+                        safeRunOnUiThread {
+                            Toast.makeText(this@AppActivity, "WebRTC Fehler: $error", Toast.LENGTH_LONG).show()
+                            endCall()
+                        }
+                    }
+                    
+                    override fun onCreateSuccess(sdp: SessionDescription) {}
+                    override fun onCreateFailure(error: String) {}
+                }, answerSdp)
+            }
+            
+            override fun onCreateFailure(s: String) {
+                Log.e("WebRTC", "❌ createAnswer failed: $s")
+                safeRunOnUiThread {
+                    Toast.makeText(this@AppActivity, "Fehler beim Erstellen der Antwort", Toast.LENGTH_SHORT).show()
+                    endCall()
                 }
             }
-            override fun onCreateFailure(s: String) {}
+            
             override fun onSetFailure(s: String) {}
             override fun onSetSuccess() {}
         })
@@ -2059,7 +2153,13 @@ class AppActivity : AppCompatActivity(), SignalingListener {
     
     private fun sendChatMessage() {
         val text = chatInput.text.toString().trim()
-        if (text.isEmpty() || activeCallSessionId == null) return
+        // SDP MISMATCH FIX: Also check if sessionId is blank, not just null
+        if (text.isEmpty() || activeCallSessionId.isNullOrBlank()) {
+            if (activeCallSessionId.isNullOrBlank()) {
+                Log.e("AppActivity", "Cannot send chat: activeCallSessionId is null/blank")
+            }
+            return
+        }
         
         val chatMsg = JSONObject().apply {
             put("type", "chat")

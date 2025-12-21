@@ -14,5 +14,9 @@
     {
         "merged": "com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/activity_app_layout.xml",
         "source": "com.x2bro4pro.bro4call.app-main-43:/layout/activity_app_layout.xml"
+    },
+    {
+        "merged": "com.x2bro4pro.bro4call.app-mergeDebugResources-40:/layout/menu_popup_glass.xml",
+        "source": "com.x2bro4pro.bro4call.app-main-43:/layout/menu_popup_glass.xml"
     }
 ]

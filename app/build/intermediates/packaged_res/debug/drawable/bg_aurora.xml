@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aurora Dark Background - Deep Space with Holographic Gradients -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Base: Deep void background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/void_dark" />
+        </shape>
+    </item>
+    
+    <!-- Aurora Glow 1: Top-Left Purple/Pink Blob -->
+    <item
+        android:top="-200dp"
+        android:left="-150dp"
+        android:width="500dp"
+        android:height="500dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="250dp"
+                android:centerColor="#40BC13FE"
+                android:endColor="#00BC13FE" />
+        </shape>
+    </item>
+    
+    <!-- Aurora Glow 2: Top-Right Pink/Cyan Blend -->
+    <item
+        android:top="-100dp"
+        android:right="-100dp"
+        android:width="400dp"
+        android:height="400dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="200dp"
+                android:centerColor="#30FF2975"
+                android:endColor="#00FF2975" />
+        </shape>
+    </item>
+    
+    <!-- Aurora Glow 3: Bottom-Right Cyan Blob -->
+    <item
+        android:bottom="-150dp"
+        android:right="-200dp"
+        android:width="550dp"
+        android:height="550dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="275dp"
+                android:centerColor="#4000F0FF"
+                android:endColor="#0000F0FF" />
+        </shape>
+    </item>
+    
+    <!-- Aurora Glow 4: Bottom-Left Purple Accent -->
+    <item
+        android:bottom="-100dp"
+        android:left="-100dp"
+        android:width="450dp"
+        android:height="450dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="225dp"
+                android:centerColor="#35BC13FE"
+                android:endColor="#00BC13FE" />
+        </shape>
+    </item>
+    
+    <!-- Subtle gradient overlay for depth -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="#15050510"
+                android:endColor="#151A1B4B" />
+        </shape>
+    </item>
+    
+</layer-list>

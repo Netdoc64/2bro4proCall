@@ -70,7 +70,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
   public final MaterialButton supervisorButton;
 
   @NonNull
-  public final TextView visitorDataLabel;
+  public final TextView visitorCountBadge;
 
   @NonNull
   public final TextView visitorDataTextView;
@@ -83,7 +83,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       @NonNull RecyclerView liveVisitorsRecycler, @NonNull MaterialButton loginButton,
       @NonNull ProgressBar reconnectProgress, @NonNull MaterialButton registerButton,
       @NonNull TextView statusTextView, @NonNull MaterialButton supervisorButton,
-      @NonNull TextView visitorDataLabel, @NonNull TextView visitorDataTextView) {
+      @NonNull TextView visitorCountBadge, @NonNull TextView visitorDataTextView) {
     this.rootView = rootView;
     this.activeCallInfo = activeCallInfo;
     this.activeCallLayout = activeCallLayout;
@@ -100,7 +100,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
     this.registerButton = registerButton;
     this.statusTextView = statusTextView;
     this.supervisorButton = supervisorButton;
-    this.visitorDataLabel = visitorDataLabel;
+    this.visitorCountBadge = visitorCountBadge;
     this.visitorDataTextView = visitorDataTextView;
   }
 
@@ -221,9 +221,9 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
         break missingId;
       }
 
-      id = R.id.visitor_data_label;
-      TextView visitorDataLabel = ViewBindings.findChildViewById(rootView, id);
-      if (visitorDataLabel == null) {
+      id = R.id.visitor_count_badge;
+      TextView visitorCountBadge = ViewBindings.findChildViewById(rootView, id);
+      if (visitorCountBadge == null) {
         break missingId;
       }
 
@@ -236,7 +236,7 @@ public final class ActivityAppLayoutBinding implements ViewBinding {
       return new ActivityAppLayoutBinding((LinearLayout) rootView, activeCallInfo, activeCallLayout,
           adminButton, callEndButton, chatInput, chatMessagesView, chatSendButton, connectButton,
           connectionQualityView, liveVisitorsRecycler, loginButton, reconnectProgress,
-          registerButton, statusTextView, supervisorButton, visitorDataLabel, visitorDataTextView);
+          registerButton, statusTextView, supervisorButton, visitorCountBadge, visitorDataTextView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

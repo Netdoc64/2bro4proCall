@@ -24,16 +24,20 @@ public final class VisitorListItemGlassBinding implements ViewBinding {
   public final MaterialButton callVisitorButton;
 
   @NonNull
+  public final MaterialButton chatVisitorButton;
+
+  @NonNull
   public final TextView visitorDomain;
 
   @NonNull
   public final TextView visitorName;
 
   private VisitorListItemGlassBinding(@NonNull MaterialCardView rootView,
-      @NonNull MaterialButton callVisitorButton, @NonNull TextView visitorDomain,
-      @NonNull TextView visitorName) {
+      @NonNull MaterialButton callVisitorButton, @NonNull MaterialButton chatVisitorButton,
+      @NonNull TextView visitorDomain, @NonNull TextView visitorName) {
     this.rootView = rootView;
     this.callVisitorButton = callVisitorButton;
+    this.chatVisitorButton = chatVisitorButton;
     this.visitorDomain = visitorDomain;
     this.visitorName = visitorName;
   }
@@ -71,6 +75,12 @@ public final class VisitorListItemGlassBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.chat_visitor_button;
+      MaterialButton chatVisitorButton = ViewBindings.findChildViewById(rootView, id);
+      if (chatVisitorButton == null) {
+        break missingId;
+      }
+
       id = R.id.visitor_domain;
       TextView visitorDomain = ViewBindings.findChildViewById(rootView, id);
       if (visitorDomain == null) {
@@ -84,7 +94,7 @@ public final class VisitorListItemGlassBinding implements ViewBinding {
       }
 
       return new VisitorListItemGlassBinding((MaterialCardView) rootView, callVisitorButton,
-          visitorDomain, visitorName);
+          chatVisitorButton, visitorDomain, visitorName);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

@@ -1,0 +1,59 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:dataBindingMergeDependencyArtifactsDebug UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesDebug UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+
+> Task :app:compileDebugKotlin
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:182:53 Parameter 'domainId' is never used, could be renamed to _
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:669:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:989:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1632:21 Name shadowed: pc
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1682:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:1720:16 'setter for isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:3421:13 Variable 'dialogView' is never used
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/AppActivity.kt:3565:13 Variable 'dialogView' is never used
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/CallService.kt:255:13 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///workspaces/2bro4proCall/app/src/main/java/com/x2bro4pro/x2bro4call/CallService.kt:255:38 'PRIORITY_HIGH: Int' is deprecated. Deprecated in Java
+
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:dexBuilderDebug
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 13s
+37 actionable tasks: 4 executed, 33 up-to-date

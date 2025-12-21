@@ -5,8 +5,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,7 +22,7 @@ import java.lang.String;
 
 public final class ActivityAppLayoutGlassBinding implements ViewBinding {
   @NonNull
-  private final ScrollView rootView;
+  private final LinearLayout rootView;
 
   @NonNull
   public final TextView activeCallInfo;
@@ -58,6 +58,9 @@ public final class ActivityAppLayoutGlassBinding implements ViewBinding {
   public final MaterialButton loginButton;
 
   @NonNull
+  public final MaterialButton menuButton;
+
+  @NonNull
   public final ProgressBar reconnectProgress;
 
   @NonNull
@@ -70,17 +73,21 @@ public final class ActivityAppLayoutGlassBinding implements ViewBinding {
   public final MaterialButton supervisorButton;
 
   @NonNull
+  public final TextView userInfoBadge;
+
+  @NonNull
   public final TextView visitorCountBadge;
 
-  private ActivityAppLayoutGlassBinding(@NonNull ScrollView rootView,
+  private ActivityAppLayoutGlassBinding(@NonNull LinearLayout rootView,
       @NonNull TextView activeCallInfo, @NonNull MaterialCardView activeCallLayout,
       @NonNull MaterialButton adminButton, @NonNull MaterialButton callEndButton,
       @NonNull EditText chatInput, @NonNull TextView chatMessagesView,
       @NonNull MaterialButton chatSendButton, @NonNull MaterialButton connectButton,
       @NonNull TextView connectionQualityView, @NonNull RecyclerView liveVisitorsRecycler,
-      @NonNull MaterialButton loginButton, @NonNull ProgressBar reconnectProgress,
-      @NonNull MaterialButton registerButton, @NonNull TextView statusTextView,
-      @NonNull MaterialButton supervisorButton, @NonNull TextView visitorCountBadge) {
+      @NonNull MaterialButton loginButton, @NonNull MaterialButton menuButton,
+      @NonNull ProgressBar reconnectProgress, @NonNull MaterialButton registerButton,
+      @NonNull TextView statusTextView, @NonNull MaterialButton supervisorButton,
+      @NonNull TextView userInfoBadge, @NonNull TextView visitorCountBadge) {
     this.rootView = rootView;
     this.activeCallInfo = activeCallInfo;
     this.activeCallLayout = activeCallLayout;
@@ -93,16 +100,18 @@ public final class ActivityAppLayoutGlassBinding implements ViewBinding {
     this.connectionQualityView = connectionQualityView;
     this.liveVisitorsRecycler = liveVisitorsRecycler;
     this.loginButton = loginButton;
+    this.menuButton = menuButton;
     this.reconnectProgress = reconnectProgress;
     this.registerButton = registerButton;
     this.statusTextView = statusTextView;
     this.supervisorButton = supervisorButton;
+    this.userInfoBadge = userInfoBadge;
     this.visitorCountBadge = visitorCountBadge;
   }
 
   @Override
   @NonNull
-  public ScrollView getRoot() {
+  public LinearLayout getRoot() {
     return rootView;
   }
 
@@ -193,6 +202,12 @@ public final class ActivityAppLayoutGlassBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.menu_button;
+      MaterialButton menuButton = ViewBindings.findChildViewById(rootView, id);
+      if (menuButton == null) {
+        break missingId;
+      }
+
       id = R.id.reconnect_progress;
       ProgressBar reconnectProgress = ViewBindings.findChildViewById(rootView, id);
       if (reconnectProgress == null) {
@@ -217,16 +232,23 @@ public final class ActivityAppLayoutGlassBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.user_info_badge;
+      TextView userInfoBadge = ViewBindings.findChildViewById(rootView, id);
+      if (userInfoBadge == null) {
+        break missingId;
+      }
+
       id = R.id.visitor_count_badge;
       TextView visitorCountBadge = ViewBindings.findChildViewById(rootView, id);
       if (visitorCountBadge == null) {
         break missingId;
       }
 
-      return new ActivityAppLayoutGlassBinding((ScrollView) rootView, activeCallInfo,
+      return new ActivityAppLayoutGlassBinding((LinearLayout) rootView, activeCallInfo,
           activeCallLayout, adminButton, callEndButton, chatInput, chatMessagesView, chatSendButton,
-          connectButton, connectionQualityView, liveVisitorsRecycler, loginButton,
-          reconnectProgress, registerButton, statusTextView, supervisorButton, visitorCountBadge);
+          connectButton, connectionQualityView, liveVisitorsRecycler, loginButton, menuButton,
+          reconnectProgress, registerButton, statusTextView, supervisorButton, userInfoBadge,
+          visitorCountBadge);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

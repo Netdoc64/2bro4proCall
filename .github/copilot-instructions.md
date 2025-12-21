@@ -1,21 +1,113 @@
 # 2bro4Call - AI Coding Agent Instructions
 
+## CRITICAL: Bug Fix Verification Protocol
+
+**BEFORE implementing ANY bug fix or code change, ALWAYS follow this protocol:**
+
+1. **READ THE ACTUAL CODE FIRST**
+   - Use `read_file` or `grep_search` to locate the relevant code
+   - Read at least 20-50 lines of context around the reported issue
+   - Understand the current implementation completely
+
+2. **VERIFY THE BUG EXISTS**
+   - Compare the reported bug description with the actual code
+   - Check if the bug is still present or already fixed
+   - Look for recent changes in git history if unsure
+   - If the code doesn't match the bug report → **STOP and inform the user**
+
+3. **ANALYZE IMPACT**
+   - Trace the code flow to understand dependencies
+   - Check if fixing this could break other features
+   - Search for similar patterns in the codebase
+   - Review related test cases or error logs
+
+4. **EDGE-CASE ANALYSIS (NEW - CRITICAL!)**
+   - **BEFORE implementing a solution, analyze ALL edge cases:**
+     - **Variable Scope:** Will variables be available in all nested closures/callbacks?
+     - **Async Operations:** Are there race conditions with async callbacks (e.g., WebRTC SdpObserver)?
+     - **Null Safety:** Could any object become null between creation and usage?
+     - **Thread Safety:** Are UI updates on main thread? Are shared variables synchronized?
+     - **State Transitions:** What if the user navigates away during async operation?
+     - **Memory Leaks:** Do observers/listeners get properly cleaned up?
+     - **Re-reading vs Preserving:** Is it safer to preserve original data in closure or re-read?
+   - **If edge-case problems found → Discuss with user BEFORE implementing**
+   - **Document which edge cases the solution handles in code comments**
+
+5. **IMPLEMENT ONLY IF CONFIRMED**
+   - Fix ONLY verified bugs
+   - Include detailed comments explaining WHY the change was needed
+   - Reference the original bug report in commit messages
+   - Add logging to verify the fix works
+   - **Choose the most edge-case-safe pattern** (e.g., nested observers for preserving closure variables)
+
+6. **NEVER BLINDLY IMPLEMENT**
+   - ❌ Don't trust bug reports without verification
+   - ❌ Don't assume code structure without reading
+   - ❌ Don't create "fixes" for non-existent problems
+   - ❌ Don't skip the verification steps
+   - ❌ Don't implement without analyzing edge cases first
+
+7. **AFTER IMPLEMENTATION - BUILD & VERIFY**
+   - **Build the app:** Run `./gradlew clean assembleDebug --stacktrace`
+   - **Check for errors:** Use `get_errors` to verify no new issues
+   - **Critical Logic Review:** Analyze the fix with these questions:
+     - Does this fix create new race conditions?
+     - Are all edge cases handled? (null checks, empty lists, concurrent access)
+     - Could this break existing functionality?
+     - Is error handling complete?
+     - Are state transitions correct? (e.g., connecting → connected → disconnected)
+     - Does logging cover all code paths?
+   - **Document the verification:** Report build status and logic review findings
+
+**Example Response Format:**
+```
+"Ich überprüfe zuerst den Code..."
+[reads relevant files]
+"✅ VERIFIZIERT: Der Fehler existiert in Zeile X - [explanation]"
+
+"🔍 EDGE-CASE ANALYSE:"
+[analyzes variable scope, async operations, null safety, thread safety, etc.]
+"✅ Sichere Lösung: [chosen pattern] - behandelt [edge cases]"
+
+[implements fix]
+[builds and verifies]
+
+OR
+
+"❌ NICHT VERIFIZIERT: Der Code zeigt bereits [current state]. 
+Der gemeldete Fehler scheint nicht zu existieren oder wurde bereits behoben."
+
+OR
+
+"⚠️ EDGE-CASE PROBLEME GEFUNDEN: [description]"
+"Soll ich [alternative solution] implementieren?"
+```
+
+---
+
 ## Project Overview
 **2bro4Call** is an Android VoIP app enabling real-time WebRTC audio calls between website visitors and agents. Built with Kotlin, it integrates WebSocket signaling, Firebase Cloud Messaging, and foreground services for persistent call handling.
 
 **Package:** `com.x2bro4pro.bro4call`  
 **Backend:** `call-server.netdoc64.workers.dev` (Cloudflare Workers)  
-**Backend API:** v2.3 (see API_ENDPOINTS.md, API_REFERENCE.md)  
+**Backend API:** v2.3 (see API_REFERENCE.md)  
 **Min SDK:** 24 | **Target SDK:** 34 | **Gradle:** 8.1.1 | **AGP:** 8.1.1 | **Kotlin:** 1.9.0  
-**Current Release:** v2.3.0 (Nov 24, 2025) - APK: ~55MB debug-signed
+**Current Release:** v2.3.0 (Dec 2024) - APK: ~55MB debug-signed
+
+**Source Location:** All Kotlin source files are in `app/src/main/java/com/x2bro4pro/x2bro4call/`
+- Note: Duplicate copy exists in `main/java/com/x2bro4pro/bro4call/` - always edit the `app/src/` version
 
 **Key Files:**
-- `AppActivity.kt` (~3450 lines) - Main UI controller with Queue-Polling, admin features, analytics
+- `AppActivity.kt` (~4350 lines) - Main UI controller with embedded inner classes
+  - Contains `VisitorAdapter` (line ~4145) - RecyclerView adapter for queue display
+  - Contains `PeerConnectionClient` (line ~4184) - WebRTC client with audio track management
 - `CallService.kt` (405 lines) - Foreground service for persistent WebSocket connections
-- `SignalingClient.kt` (290 lines) - WebSocket manager with intelligent reconnection logic
-- `AuthClient.kt` (444 lines) - REST authentication with encrypted credential storage and permission system
-- `ErrorReporter.kt` (285 lines) - Error reporting client for API v2.3 backend integration
-- `BootReceiver.kt` - Auto-starts CallService after device reboot
+- `SignalingClient.kt` (316 lines) - WebSocket manager with exponential backoff reconnection
+- `AuthClient.kt` (444 lines) - REST auth with EncryptedSharedPreferences and permission system
+- `ErrorReporter.kt` (284 lines) - Error reporting to backend `/api/errors/report`
+- `AgentNotificationsClient.kt` - WebSocket notifications hub client
+- `BootReceiver.kt`, `NetworkChangeReceiver.kt` - Lifecycle management
+- `MyFirebaseMessagingService.kt` - FCM push notification handler
 
 ## Architecture & Data Flow
 
@@ -90,10 +182,10 @@ Update RecyclerView → Show waiting visitors
 ```
 
 ### Key Components
-1. **AppActivity** (~3450 lines) - Main UI controller implementing `SignalingListener`
+1. **AppActivity** (~4350 lines) - Main UI controller implementing `SignalingListener`
    - Contains **embedded inner classes:**
-     - `VisitorAdapter` (line ~1575) - RecyclerView adapter for live visitor list
-     - `PeerConnectionClient` (line 1603) - WebRTC client with audio track management
+     - `VisitorAdapter` (line ~4145) - RecyclerView adapter for queue display
+     - `PeerConnectionClient` (line ~4184) - WebRTC client with audio track management
    - **Queue-Polling System (v2.3):**
      - Polls `GET /api/agent/queues` every 5 seconds after login
      - Displays waiting visitors in RecyclerView (status: "queued" or "ringing")
@@ -144,7 +236,7 @@ Update RecyclerView → Show waiting visitors
    - **Permission checking:** `hasPermission(permission: String)` checks for `*` (SuperAdmin) or specific permission
    - **New methods:** `getUserId()`, `getEmail()`, `getDisplayName()`, `getRoles()`, `getPermissions()`
 
-5. **ErrorReporter** (285 lines) - **NEW**: Error reporting client for API v2.3
+5. **ErrorReporter** (284 lines) - **NEW**: Error reporting client for API v2.3
    - Endpoint: `/api/errors/report` (anonymous, optional auth for user linking)
    - **Error Types:** crash, network, webrtc, permission, ui, other
    - **Severity Levels:** fatal, error, warning, info
@@ -395,7 +487,6 @@ if (roomNow.isNullOrBlank() || tokenNow.isNullOrBlank()) {
 - **Admin Endpoint:** `/api/admin/errors` - Dashboard for error management with resolution workflow
 - **Client Integration:** `ErrorReporter.kt` handles all error reporting with automatic device info collection
 - **Auto-reporting:** Global crash handler, WebRTC failures, network errors, permission denials
-- See ERROR_REPORTING.md for complete documentation
 
 ## Testing Checklist
 - [ ] Login/Register with backend (credentials stored encrypted)
